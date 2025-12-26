@@ -1,0 +1,273 @@
+{% extends "base.html" %}
+
+{% block title %}Statistics - {{ metadata.original_name }}{% endblock %}
+
+{% block content %}
+<div class="space-y-8">
+    <!-- Header -->
+    <div class="flex items-center justify-between">
+        <div>
+            <div class="flex items-center space-x-2 text-gray-400 text-sm mb-2">
+                <a href="/" class="hover:text-white">Dashboard</a>
+                <span>/</span>
+                <span>Statistics</span>
+            </div>
+            <h1 class="text-3xl font-bold text-white">{{ metadata.original_name }}</h1>
+        </div>
+        <div class="flex space-x-3">
+            <a
+                href="/translate/{{ file_id }}"
+                class="bg-emerald-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-emerald-700 transition-colors"
+            >
+                Translate
+            </a>
+            <a
+                href="/api/files/{{ file_id }}/download"
+                class="bg-gray-700 text-gray-300 px-4 py-2 rounded-lg font-medium hover:bg-gray-600 transition-colors"
+            >
+                Download
+            </a>
+        </div>
+    </div>
+
+    <!-- Stats Cards -->
+    <div id="stats-container" class="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <!-- Loading state -->
+        <div class="col-span-4 flex justify-center py-12">
+            <svg class="animate-spin h-8 w-8 text-emerald-500" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+        </div>
+    </div>
+
+    <!-- Coverage Chart -->
+    <div class="bg-gray-800 rounded-lg border border-gray-700 p-6">
+        <h2 class="text-lg font-semibold text-white mb-4">Translation Coverage</h2>
+        <div class="h-64">
+            <canvas id="coverage-chart"></canvas>
+        </div>
+    </div>
+
+    <!-- Language Details -->
+    <div class="bg-gray-800 rounded-lg border border-gray-700">
+        <div class="px-6 py-4 border-b border-gray-700">
+            <h2 class="text-lg font-semibold text-white">Languages</h2>
+        </div>
+        <div id="languages-table" class="overflow-x-auto">
+            <!-- Will be populated by JS -->
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const fileId = '{{ file_id }}';
+    let stats = null;
+    let chart = null;
+
+    // Language display names
+    const languageNames = {
+        'en': 'English',
+        'de': 'German',
+        'fr': 'French',
+        'it': 'Italian',
+        'es': 'Spanish',
+        'ro': 'Romanian',
+    };
+
+    async function loadStats() {
+        try {
+            const response = await fetch(`/api/stats/${fileId}`);
+            if (!response.ok) throw new Error('Failed to load stats');
+            stats = await response.json();
+            renderStats();
+            renderChart();
+            renderLanguagesTable();
+        } catch (error) {
+            showToast(error.message, 'error');
+        }
+    }
+
+    function renderStats() {
+        const container = document.getElementById('stats-container');
+        container.innerHTML = `
+            <div class="bg-gray-800 rounded-lg border border-gray-700 p-6">
+                <div class="text-gray-400 text-sm">Total Strings</div>
+                <div class="text-3xl font-bold text-white mt-1">${stats.total_strings}</div>
+            </div>
+            <div class="bg-gray-800 rounded-lg border border-gray-700 p-6">
+                <div class="text-gray-400 text-sm">Translatable</div>
+                <div class="text-3xl font-bold text-white mt-1">${stats.translatable_strings}</div>
+            </div>
+            <div class="bg-gray-800 rounded-lg border border-gray-700 p-6">
+                <div class="text-gray-400 text-sm">Source Language</div>
+                <div class="text-3xl font-bold text-white mt-1">${stats.source_language.toUpperCase()}</div>
+            </div>
+            <div class="bg-gray-800 rounded-lg border border-gray-700 p-6">
+                <div class="text-gray-400 text-sm">Target Languages</div>
+                <div class="text-3xl font-bold text-white mt-1">${Object.keys(stats.coverage).length}</div>
+            </div>
+        `;
+    }
+
+    function renderChart() {
+        const ctx = document.getElementById('coverage-chart').getContext('2d');
+
+        const languages = Object.keys(stats.coverage);
+        const percentages = languages.map(lang => stats.coverage[lang].percentage);
+        const labels = languages.map(lang => languageNames[lang] || lang.toUpperCase());
+
+        // Destroy existing chart if any
+        if (chart) chart.destroy();
+
+        chart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Coverage %',
+                    data: percentages,
+                    backgroundColor: percentages.map(p => {
+                        if (p >= 90) return 'rgba(16, 185, 129, 0.8)';
+                        if (p >= 50) return 'rgba(245, 158, 11, 0.8)';
+                        return 'rgba(239, 68, 68, 0.8)';
+                    }),
+                    borderColor: percentages.map(p => {
+                        if (p >= 90) return 'rgb(16, 185, 129)';
+                        if (p >= 50) return 'rgb(245, 158, 11)';
+                        return 'rgb(239, 68, 68)';
+                    }),
+                    borderWidth: 1,
+                    borderRadius: 4,
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false,
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                const lang = languages[context.dataIndex];
+                                const coverage = stats.coverage[lang];
+                                return `${coverage.translated}/${coverage.total} (${coverage.percentage}%)`;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        max: 100,
+                        grid: {
+                            color: 'rgba(75, 85, 99, 0.3)',
+                        },
+                        ticks: {
+                            color: '#9CA3AF',
+                            callback: value => value + '%',
+                        }
+                    },
+                    x: {
+                        grid: {
+                            display: false,
+                        },
+                        ticks: {
+                            color: '#9CA3AF',
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    function renderLanguagesTable() {
+        const container = document.getElementById('languages-table');
+        const languages = Object.keys(stats.coverage);
+
+        if (languages.length === 0) {
+            container.innerHTML = `
+                <div class="px-6 py-8 text-center text-gray-400">
+                    No translations yet
+                </div>
+            `;
+            return;
+        }
+
+        let html = `
+            <table class="w-full">
+                <thead class="bg-gray-750">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-sm font-medium text-gray-400">Language</th>
+                        <th class="px-6 py-3 text-left text-sm font-medium text-gray-400">Progress</th>
+                        <th class="px-6 py-3 text-right text-sm font-medium text-gray-400">Translated</th>
+                        <th class="px-6 py-3 text-right text-sm font-medium text-gray-400">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-700">
+        `;
+
+        for (const lang of languages) {
+            const coverage = stats.coverage[lang];
+            const colorClass = coverage.percentage >= 90 ? 'bg-emerald-500' :
+                              coverage.percentage >= 50 ? 'bg-yellow-500' : 'bg-red-500';
+
+            html += `
+                <tr class="hover:bg-gray-750">
+                    <td class="px-6 py-4">
+                        <div class="flex items-center space-x-3">
+                            <span class="text-lg">${getFlagEmoji(lang)}</span>
+                            <div>
+                                <div class="text-white font-medium">${languageNames[lang] || lang}</div>
+                                <div class="text-sm text-gray-400">${lang.toUpperCase()}</div>
+                            </div>
+                        </div>
+                    </td>
+                    <td class="px-6 py-4">
+                        <div class="flex items-center space-x-3">
+                            <div class="flex-1 bg-gray-700 rounded-full h-2 w-32">
+                                <div class="${colorClass} rounded-full h-2" style="width: ${coverage.percentage}%"></div>
+                            </div>
+                            <span class="text-white font-medium">${coverage.percentage}%</span>
+                        </div>
+                    </td>
+                    <td class="px-6 py-4 text-right">
+                        <span class="text-white">${coverage.translated}</span>
+                        <span class="text-gray-400">/ ${coverage.total}</span>
+                    </td>
+                    <td class="px-6 py-4 text-right">
+                        <a
+                            href="/review/${fileId}/${lang}"
+                            class="text-emerald-400 hover:text-emerald-300 text-sm"
+                        >
+                            Review
+                        </a>
+                    </td>
+                </tr>
+            `;
+        }
+
+        html += '</tbody></table>';
+        container.innerHTML = html;
+    }
+
+    function getFlagEmoji(langCode) {
+        const flags = {
+            'en': '🇺🇸',
+            'de': '🇩🇪',
+            'fr': '🇫🇷',
+            'it': '🇮🇹',
+            'es': '🇪🇸',
+            'ro': '🇷🇴',
+        };
+        return flags[langCode] || '🌐';
+    }
+
+    // Load stats on page load
+    loadStats();
+</script>
+{% endblock %}

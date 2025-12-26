@@ -1,0 +1,68 @@
+/* Custom styles for MintDeck Localizer */
+
+/* Dark background for gray-750 (between 700 and 800) */
+.bg-gray-750 {
+    background-color: #2d3748;
+}
+
+.hover\:bg-gray-750:hover {
+    background-color: #2d3748;
+}
+
+.hover\:bg-gray-650:hover {
+    background-color: #3d4a5c;
+}
+
+/* Range slider styling */
+input[type="range"] {
+    -webkit-appearance: none;
+    appearance: none;
+    background: #374151;
+    border-radius: 9999px;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: #10b981;
+    cursor: pointer;
+}
+
+input[type="range"]::-moz-range-thumb {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: #10b981;
+    cursor: pointer;
+    border: none;
+}
+
+/* Checkbox styling */
+input[type="checkbox"]:checked {
+    background-color: #10b981;
+    border-color: #10b981;
+}
+
+/* Radio button styling */
+input[type="radio"]:checked {
+    background-color: #10b981;
+    border-color: #10b981;
+}
+
+/* Smooth transitions */
+.transition-colors {
+    transition-property: background-color, border-color, color, fill, stroke;
+    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+    transition-duration: 150ms;
+}
+
+/* Fix for webkit autofill */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus {
+    -webkit-box-shadow: 0 0 0px 1000px #374151 inset;
+    -webkit-text-fill-color: #ffffff;
+}

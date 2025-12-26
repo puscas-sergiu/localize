@@ -1,0 +1,501 @@
+COMPLETE TECHNICAL GUIDE - COPY THIS
+PHASE 1: STRING PARSING (Weeks 1-3)
+File: src/extraction/xcstrings_parser.py
+
+python
+import json
+from typing import Dict, List, Optional
+from dataclasses import dataclass
+
+@dataclass
+class StringEntry:
+    key: str
+    value: str
+    language: str
+    comment: Optional[str] = None
+
+class XCStringsParser:
+    def parse_file(self, file_path: str) -> Dict[str, StringEntry]:
+        with open(file_path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        
+        self.source_language = data.get('sourceLanguage', 'en')
+        strings = {}
+        
+        for key, entry_data in data.get('strings', {}).items():
+            comment = entry_data.get('comment', '')
+            localizations = entry_data.get('localizations', {})
+            
+            if self.source_language in localizations:
+                source_value = localizations[self.source_language].get('stringUnit', {}).get('value', '')
+            else:
+                source_value = ''
+            
+            strings[key] = StringEntry(
+                key=key,
+                value=source_value,
+                language=self.source_language,
+                comment=comment
+            )
+        
+        return strings
+PHASE 1: DIFF ENGINE (Detect Changes)
+File: src/extraction/diff_engine.py
+
+python
+from typing import Dict, Tuple
+from dataclasses import dataclass
+
+@dataclass
+class DiffResult:
+    new_strings: Dict[str, str]
+    modified_strings: Dict[str, Tuple[str, str]]
+    deleted_strings: Dict[str, str]
+
+class DiffEngine:
+    def compare_versions(self, previous: Dict[str, str], current: Dict[str, str]) -> DiffResult:
+        new_strings = {}
+        modified_strings = {}
+        deleted_strings = {}
+        
+        # Find new and modified
+        for key, new_value in current.items():
+            if key not in previous:
+                new_strings[key] = new_value
+            elif previous[key] != new_value:
+                modified_strings[key] = (previous[key], new_value)
+        
+        # Find deleted
+        for key, old_value in previous.items():
+            if key not in current:
+                deleted_strings[key] = old_value
+        
+        return DiffResult(
+            new_strings=new_strings,
+            modified_strings=modified_strings,
+            deleted_strings=deleted_strings
+        )
+PHASE 2: LLM TRANSLATION (GPT-4)
+File: src/translation/llm_clients/openai_client.py
+
+python
+import os
+from typing import Optional, Dict
+from openai import AsyncOpenAI
+import asyncio
+
+class OpenAIClient:
+    def __init__(self, api_key: Optional[str] = None):
+        self.api_key = api_key or os.getenv("OPENAI_API_KEY")
+        self.client = AsyncOpenAI(api_key=self.api_key)
+        self.model = "gpt-4"
+        self.temperature = 0.3
+
+    async def translate(self,
+        source: str,
+        language: str,
+        context: Optional[str] = None,
+        glossary: Optional[Dict[str, str]] = None,
+        tone: str = "casual"
+    ) -> str:
+        
+        system_prompt = f"""You are a professional iOS app translator.
+
+CRITICAL RULES:
+1. Preserve ALL placeholders exactly: %d, %s, %@, %ld, %f
+2. Keep translations concise for mobile screens
+3. Match tone: {tone}
+4. Respond with ONLY the translation (no explanation)
+5. If cannot translate, respond: [UNABLE_TO_TRANSLATE]
+"""
+        
+        if glossary:
+            system_prompt += "\nGLOSSARY:\n"
+            for term, definition in glossary.items():
+                system_prompt += f"  - {term}: {definition}\n"
+        
+        user_prompt = f'Translate to {language}:\n"{source}"'
+        if context:
+            user_prompt += f"\nContext: {context}"
+        user_prompt += "\nRespond with ONLY the translation:"
+        
+        response = await self.client.chat.completions.create(
+            model=self.model,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt}
+            ],
+            temperature=self.temperature,
+            max_tokens=500
+        )
+        
+        return response.choices[0].message.content.strip()
+PHASE 2: BATCH PROCESSOR (Translate Multiple Strings)
+File: src/translation/batch_processor.py
+
+python
+import asyncio
+from typing import Dict, List, Optional
+from src.translation.llm_manager import LLMManager
+
+class BatchProcessor:
+    def __init__(self, max_workers: int = 4):
+        self.llm_manager = LLMManager()
+        self.max_workers = max_workers
+
+    async def process_batch(self,
+        strings: List[str],
+        language: str,
+        glossary: Optional[Dict[str, str]] = None,
+        batch_size: int = 20
+    ) -> Dict[str, str]:
+        
+        results = {}
+        
+        # Process in batches
+        for i in range(0, len(strings), batch_size):
+            batch = strings[i:i+batch_size]
+            print(f"Processing batch {i//batch_size + 1} ({len(batch)} strings)")
+            
+            # Translate batch in parallel
+            translations = await self.llm_manager.batch_translate(
+                batch, 
+                language, 
+                glossary
+            )
+            
+            for source, translation in zip(batch, translations):
+                results[source] = translation
+        
+        print(f"Batch complete: {len(results)} translations")
+        return results
+PHASE 3: QUALITY SCORER (Rate Translation 0-100)
+File: src/validation/scoring.py
+
+python
+from typing import Dict, Optional
+from dataclasses import dataclass
+
+@dataclass
+class QualityScore:
+    overall_score: float  # 0-100
+    validation_score: float
+    glossary_score: float
+    length_score: float
+    category: str  # Green (95+), Yellow (80-94), Red (<80)
+
+class QualityScorer:
+    def score(self,
+        source: str,
+        translation: str,
+        max_length: Optional[int] = None,
+        glossary_matches: Optional[Dict[str, str]] = None
+    ) -> QualityScore:
+        
+        # Validation score (40%)
+        validation_score = 100 if translation != "[UNABLE_TO_TRANSLATE]" else 0
+        
+        # Glossary score (30%)
+        glossary_score = 100
+        if glossary_matches:
+            matching = sum(1 for term in glossary_matches if term.lower() in translation.lower())
+            glossary_score = (matching / len(glossary_matches)) * 100
+        
+        # Length score (20%)
+        length_score = 100
+        if max_length and len(translation) > max_length:
+            overage = ((len(translation) - max_length) / max_length) * 100
+            length_score = max(0, 100 - (overage * 2))
+        
+        # Context score (10%) - translation should be similar length to source
+        context_score = 100
+        if len(translation) > 0:
+            ratio = min(len(source), len(translation)) / max(len(source), len(translation))
+            if 0.3 <= ratio <= 1.5:
+                context_score = 100
+            elif 0.2 <= ratio <= 2.0:
+                context_score = 80
+            else:
+                context_score = 50
+        
+        # Calculate weighted overall
+        overall = (
+            validation_score * 0.4 +
+            glossary_score * 0.3 +
+            length_score * 0.2 +
+            context_score * 0.1
+        )
+        
+        # Category
+        if overall >= 95:
+            category = "Green"
+        elif overall >= 80:
+            category = "Yellow"
+        else:
+            category = "Red"
+        
+        return QualityScore(
+            overall_score=overall,
+            validation_score=validation_score,
+            glossary_score=glossary_score,
+            length_score=length_score,
+            category=category
+        )
+PHASE 3: PLACEHOLDER VALIDATOR
+File: src/validation/placeholder_validator.py
+
+python
+import re
+from typing import List
+from dataclasses import dataclass
+
+@dataclass
+class ValidationError:
+    error_type: str
+    message: str
+    severity: str  # critical, high, medium, low
+
+class PlaceholderValidator:
+    PLACEHOLDER_PATTERN = r'%[-#+ 0]*\d*[hlL]?[diouxXeEfFgGaAcspn%@]'
+    
+    def validate(self, source: str, translation: str) -> List[ValidationError]:
+        errors = []
+        
+        source_ph = self._extract_placeholders(source)
+        trans_ph = self._extract_placeholders(translation)
+        
+        if len(source_ph) != len(trans_ph):
+            errors.append(ValidationError(
+                error_type="placeholder_count_mismatch",
+                message=f"Source has {len(source_ph)}, translation has {len(trans_ph)}",
+                severity="critical"
+            ))
+        
+        if source_ph != trans_ph:
+            errors.append(ValidationError(
+                error_type="placeholder_mismatch",
+                message=f"Source: {source_ph}, Translation: {trans_ph}",
+                severity="critical"
+            ))
+        
+        return errors
+    
+    def _extract_placeholders(self, text: str) -> List[str]:
+        matches = re.findall(self.PLACEHOLDER_PATTERN, text)
+        return sorted(matches)
+PHASE 4: GITHUB WEBHOOK
+File: src/api/routes.py (FastAPI endpoint)
+
+python
+from fastapi import FastAPI, Request, BackgroundTasks
+import hmac
+import hashlib
+import json
+import os
+import logging
+
+logger = logging.getLogger(__name__)
+app = FastAPI()
+
+GITHUB_SECRET = os.getenv("GITHUB_WEBHOOK_SECRET")
+
+def verify_github_signature(payload: bytes, signature: str) -> bool:
+    expected = "sha256=" + hmac.new(
+        GITHUB_SECRET.encode(),
+        payload,
+        hashlib.sha256
+    ).hexdigest()
+    return hmac.compare_digest(signature, expected)
+
+@app.post("/webhook/github")
+async def github_webhook(request: Request, background_tasks: BackgroundTasks):
+    payload = await request.body()
+    signature = request.headers.get("X-Hub-Signature-256", "")
+    
+    if not verify_github_signature(payload, signature):
+        logger.warning("Invalid signature")
+        return {"error": "Invalid signature"}, 403
+    
+    event_type = request.headers.get("X-GitHub-Event")
+    
+    if event_type == "push":
+        data = json.loads(payload)
+        
+        # Check for .xcstrings changes
+        has_xcstrings = False
+        for commit in data.get("commits", []):
+            for file in commit.get("modified", []) + commit.get("added", []):
+                if file.endswith(".xcstrings"):
+                    has_xcstrings = True
+                    break
+        
+        if has_xcstrings:
+            logger.info("Detected .xcstrings changes")
+            # Queue localization job
+            background_tasks.add_task(process_localization, data)
+            return {"status": "queued"}
+    
+    return {"status": "ignored"}
+
+async def process_localization(data: dict):
+    # TODO: Extract strings, translate, create PR
+    logger.info("Processing localization job")
+SETUP: requirements.txt
+text
+python==3.11
+fastapi==0.104.1
+uvicorn==0.24.0
+pydantic==2.4.2
+sqlalchemy==2.0.23
+psycopg2-binary==2.9.9
+redis==5.0.0
+openai==1.3.0
+anthropic==0.7.0
+deepl==1.15.0
+PyGithub==1.60.0
+pytest==7.4.3
+pytest-asyncio==0.21.1
+python-dotenv==1.0.0
+SETUP: .env
+text
+OPENAI_API_KEY=sk-your-key-here
+ANTHROPIC_API_KEY=sk-ant-your-key-here
+DEEPL_API_KEY=your-key-here
+GITHUB_TOKEN=ghp_your-token-here
+GITHUB_WEBHOOK_SECRET=whsec_your-secret-here
+DATABASE_URL=postgresql://user:password@localhost/localization_db
+REDIS_URL=redis://localhost:6379/0
+SETUP: docker-compose.yml
+text
+version: '3.8'
+
+services:
+  api:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql://user:password@postgres:5432/localization_db
+      REDIS_URL: redis://redis:6379
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      DEEPL_API_KEY: ${DEEPL_API_KEY}
+      GITHUB_TOKEN: ${GITHUB_TOKEN}
+    depends_on:
+      - postgres
+      - redis
+    volumes:
+      - .:/app
+
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: localization_db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+  redis:
+    image: redis:7
+    ports:
+      - "6379:6379"
+
+volumes:
+  postgres_data:
+SETUP: Dockerfile
+text
+FROM python:3.11-slim
+
+WORKDIR /app
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY src/ src/
+
+EXPOSE 8000
+
+CMD ["uvicorn", "src.api.app:app", "--host", "0.0.0.0", "--port", "8000"]
+QUICK START COMMANDS
+bash
+# Setup
+python -m venv venv
+source venv/bin/activate  # Windows: venv\Scripts\activate
+pip install -r requirements.txt
+
+# Copy env file and edit with your API keys
+cp .env.example .env
+
+# Start database and cache
+docker-compose up -d postgres redis
+
+# Run tests
+pytest
+
+# Start server
+uvicorn src.api.app:app --reload
+
+# Format code
+black src/
+
+# Lint
+flake8 src/
+PROJECT STRUCTURE TO CREATE
+text
+ios-localization-automation/
+├── src/
+│   ├── extraction/
+│   │   ├── xcstrings_parser.py
+│   │   ├── diff_engine.py
+│   │   └── context_builder.py
+│   ├── translation/
+│   │   ├── llm_clients/
+│   │   │   ├── openai_client.py
+│   │   │   ├── claude_client.py
+│   │   │   └── deepl_client.py
+│   │   ├── llm_manager.py
+│   │   ├── prompt_engineering.py
+│   │   ├── batch_processor.py
+│   │   └── cache.py
+│   ├── validation/
+│   │   ├── placeholder_validator.py
+│   │   ├── length_validator.py
+│   │   ├── glossary_checker.py
+│   │   └── scoring.py
+│   ├── github_integration/
+│   │   ├── webhook_handler.py
+│   │   ├── pr_manager.py
+│   │   └── branch_manager.py
+│   ├── api/
+│   │   ├── app.py
+│   │   ├── routes.py
+│   │   └── models.py
+│   └── utils/
+│       ├── logging.py
+│       └── config.py
+├── tests/
+│   ├── unit/
+│   │   ├── test_parser.py
+│   │   ├── test_diff_engine.py
+│   │   └── test_scoring.py
+│   └── fixtures/
+├── .github/workflows/
+│   └── tests.yml
+├── requirements.txt
+├── .env.example
+├── Dockerfile
+├── docker-compose.yml
+└── pytest.ini
+TIMELINE
+Week 1-3: String Extraction (parser + diff + context)
+Week 4-6: AI Translation (OpenAI + Claude + DeepL)
+Week 7-9: Quality Validation (scoring + glossary + length)
+Week 10-12: GitHub Integration (webhooks + PR creation)
+Week 13-16: Deployment (Docker + monitoring + production)
+
+That's everything you need to start coding. The rest of the planning docs are useful for understanding context, but this is the code you actually need to implement.
+
+Start with Phase 1 (string parsing), write tests as you go, then move to Phase 2.
