@@ -37,6 +37,18 @@ class ReviewResult:
         return not self.passed or len(self.issues) > 0
 
 
+@dataclass
+class ReviewWithSuggestionsResult:
+    """Result of LLM review with multiple translation suggestions."""
+
+    key: str
+    source: str
+    translation: str
+    language: str
+    issues: List[str] = field(default_factory=list)
+    suggestions: List[Dict[str, str]] = field(default_factory=list)  # [{"text": "...", "explanation": "..."}]
+
+
 class LLMReviewer:
     """Uses GPT to semantically review translations."""
 
@@ -214,5 +226,114 @@ TRANSLATION ({lang_name}):
             prompt += f"\n\nCONTEXT: {context}"
 
         prompt += "\n\nProvide your evaluation as JSON."
+
+        return prompt
+
+    def review_with_suggestions(
+        self,
+        source: str,
+        translation: str,
+        target_lang: str,
+        key: str = "",
+        context: Optional[str] = None,
+        num_suggestions: int = 3,
+    ) -> ReviewWithSuggestionsResult:
+        """
+        Review a translation and provide multiple alternative suggestions.
+
+        Args:
+            source: Original English text
+            translation: Current translated text
+            target_lang: Target language code (e.g., "de", "fr")
+            key: String key for reference
+            context: Optional context about where the string is used
+            num_suggestions: Number of suggestions to generate (default 3)
+
+        Returns:
+            ReviewWithSuggestionsResult with issues and ranked suggestions
+        """
+        lang_name = self.LANGUAGE_NAMES.get(target_lang.lower(), target_lang)
+
+        system_prompt = self._build_suggestions_system_prompt(lang_name, num_suggestions)
+        user_prompt = self._build_suggestions_user_prompt(source, translation, lang_name, context)
+
+        try:
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt},
+                ],
+                response_format={"type": "json_object"},
+            )
+
+            result_text = response.choices[0].message.content.strip()
+            result_data = json.loads(result_text)
+
+            return ReviewWithSuggestionsResult(
+                key=key,
+                source=source,
+                translation=translation,
+                language=target_lang,
+                issues=result_data.get("issues", []),
+                suggestions=result_data.get("suggestions", []),
+            )
+
+        except Exception as e:
+            # Return a result indicating review failed
+            return ReviewWithSuggestionsResult(
+                key=key,
+                source=source,
+                translation=translation,
+                language=target_lang,
+                issues=[f"Review failed: {str(e)}"],
+                suggestions=[],
+            )
+
+    def _build_suggestions_system_prompt(self, lang_name: str, num_suggestions: int) -> str:
+        """Build the system prompt for review with suggestions."""
+        return f"""You are an expert translator and quality reviewer for {lang_name} translations in a mobile app context.
+
+Your task is to:
+1. Identify any issues with the translation (empty list if none)
+2. Provide {num_suggestions} alternative translation suggestions ranked by quality
+
+IMPORTANT GUIDELINES:
+- Focus on meaning preservation and natural phrasing
+- Consider mobile UI context - translations should be concise
+- iOS format specifiers (%@, %d, %1$@, etc.) MUST be preserved exactly
+- If the translation is already perfect, still provide alternative phrasings for variety
+- The first suggestion should be your best/recommended option
+
+RESPONSE FORMAT (JSON only):
+{{
+  "issues": ["issue 1", "issue 2"],
+  "suggestions": [
+    {{"text": "<best translation>", "explanation": "<brief reason>"}},
+    {{"text": "<alternative 1>", "explanation": "<brief reason>"}},
+    {{"text": "<alternative 2>", "explanation": "<brief reason>"}}
+  ]
+}}"""
+
+    def _build_suggestions_user_prompt(
+        self,
+        source: str,
+        translation: str,
+        lang_name: str,
+        context: Optional[str],
+    ) -> str:
+        """Build the user prompt for review with suggestions."""
+        prompt = f"""Review this English to {lang_name} translation and provide alternatives:
+
+SOURCE (English):
+{source}
+
+CURRENT TRANSLATION ({lang_name}):
+{translation}"""
+
+        if context:
+            prompt += f"\n\nCONTEXT: {context}"
+
+        prompt += "\n\nProvide your review and suggestions as JSON."
 
         return prompt

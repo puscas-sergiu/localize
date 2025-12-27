@@ -42,6 +42,24 @@ class AddLanguageRequest(BaseModel):
     language: str
 
 
+class ReviewSingleRequest(BaseModel):
+    key: str
+    source: str
+    translation: str
+
+
+class ReviewSuggestion(BaseModel):
+    text: str
+    explanation: str
+
+
+class ReviewSingleResponse(BaseModel):
+    key: str
+    issues: list[str]
+    suggestions: list[ReviewSuggestion]
+    original_translation: str
+
+
 # File endpoints
 @router.post("/files/upload")
 async def upload_file(request: Request, file: UploadFile = File(...)):
@@ -389,6 +407,51 @@ async def translate_single_string(
         "quality_score": result.quality_score.overall,
         "provider": result.provider,
     }
+
+
+@router.post("/review/{file_id}/{language}/review-single")
+async def review_single_translation(
+    request: Request,
+    file_id: str,
+    language: str,
+    body: ReviewSingleRequest,
+) -> ReviewSingleResponse:
+    """
+    Review a single translation with LLM and get suggestions.
+
+    Returns issues found and 2-3 alternative translation suggestions.
+    """
+    file_storage = request.app.state.file_storage
+
+    if not file_storage.exists(file_id):
+        raise HTTPException(404, "File not found")
+
+    from ...validation.llm_reviewer import LLMReviewer
+
+    reviewer = LLMReviewer()
+
+    result = await asyncio.to_thread(
+        reviewer.review_with_suggestions,
+        source=body.source,
+        translation=body.translation,
+        target_lang=language,
+        key=body.key,
+        num_suggestions=3,
+    )
+
+    # Check if review failed
+    if result.issues and len(result.issues) == 1 and result.issues[0].startswith("Review failed:"):
+        raise HTTPException(500, result.issues[0])
+
+    return ReviewSingleResponse(
+        key=result.key,
+        issues=result.issues,
+        suggestions=[
+            ReviewSuggestion(text=s.get("text", ""), explanation=s.get("explanation", ""))
+            for s in result.suggestions
+        ],
+        original_translation=body.translation,
+    )
 
 
 @router.post("/review/{file_id}/{language}/translate-all-untranslated")

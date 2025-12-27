@@ -326,6 +326,84 @@
             </div>
         </div>
     </div>
+
+    <!-- Single Translation Review Modal -->
+    <div id="review-single-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-gray-800 rounded-lg border border-gray-700 p-6 max-w-lg w-full mx-4">
+            <h3 class="text-lg font-semibold text-white mb-4">LLM Review</h3>
+
+            <!-- Loading State -->
+            <div id="review-single-loading" class="space-y-4">
+                <div class="flex items-center justify-center py-8">
+                    <svg class="animate-spin h-8 w-8 text-purple-500" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                    </svg>
+                </div>
+                <p class="text-center text-gray-400">Analyzing translation...</p>
+            </div>
+
+            <!-- Results State -->
+            <div id="review-single-results" class="hidden space-y-4">
+                <!-- Current Translation -->
+                <div class="bg-gray-750 rounded-lg p-3">
+                    <div class="text-xs text-gray-500 uppercase mb-1">Current Translation</div>
+                    <div id="review-current-translation" class="text-gray-300"></div>
+                </div>
+
+                <!-- Issues Section -->
+                <div id="review-issues-section">
+                    <div class="text-sm font-medium text-gray-400 mb-2">Issues Found</div>
+                    <div id="review-issues-list" class="space-y-2">
+                        <!-- Issues will be inserted here -->
+                    </div>
+                </div>
+
+                <!-- No Issues Message -->
+                <div id="review-no-issues" class="hidden">
+                    <div class="flex items-center space-x-2 text-emerald-400">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                        </svg>
+                        <span>No issues found - translation looks good!</span>
+                    </div>
+                </div>
+
+                <!-- Suggestions Section -->
+                <div>
+                    <div class="text-sm font-medium text-gray-400 mb-2">Suggestions</div>
+                    <div id="review-suggestions-list" class="space-y-2">
+                        <!-- Suggestions with Apply buttons will be inserted here -->
+                    </div>
+                </div>
+
+                <!-- Close Button -->
+                <button
+                    id="close-review-single"
+                    class="w-full bg-gray-700 text-white py-2 px-4 rounded-lg font-medium hover:bg-gray-600 transition-colors mt-4"
+                >
+                    Close
+                </button>
+            </div>
+
+            <!-- Error State -->
+            <div id="review-single-error" class="hidden space-y-4">
+                <div class="flex items-center space-x-2 text-red-400">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                              d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    <span id="review-error-message">Failed to review translation</span>
+                </div>
+                <button
+                    id="close-review-error"
+                    class="w-full bg-gray-700 text-white py-2 px-4 rounded-lg font-medium hover:bg-gray-600 transition-colors"
+                >
+                    Close
+                </button>
+            </div>
+        </div>
+    </div>
 </div>
 {% endif %}
 {% endblock %}
@@ -493,7 +571,19 @@
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129"></path>
                                 </svg>
                             </button>
-                        ` : ''}
+                        ` : `
+                            <button
+                                class="review-single-btn text-purple-400 hover:text-purple-300 p-1"
+                                data-key="${escapeHtml(t.key)}"
+                                data-source="${escapeHtml(t.source)}"
+                                data-translation="${escapeHtml(t.translation)}"
+                                title="LLM Review"
+                            >
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                </svg>
+                            </button>
+                        `}
                     </td>
                 </tr>
             `;
@@ -502,6 +592,7 @@
         tbody.innerHTML = html;
         setupInlineEditing();
         setupTranslateSingleButtons();
+        setupReviewSingleButtons();
     }
 
     function escapeHtml(text) {
@@ -649,6 +740,209 @@
             button.innerHTML = originalHtml;
         }
     }
+
+    // Single translation LLM review
+    let currentReviewKey = null;
+
+    function setupReviewSingleButtons() {
+        document.querySelectorAll('.review-single-btn').forEach(btn => {
+            btn.addEventListener('click', async function() {
+                const key = this.dataset.key;
+                const source = this.dataset.source;
+                const translation = this.dataset.translation;
+                await reviewSingleTranslation(key, source, translation, this);
+            });
+        });
+    }
+
+    async function reviewSingleTranslation(key, source, translation, button) {
+        currentReviewKey = key;
+
+        const modal = document.getElementById('review-single-modal');
+        const loading = document.getElementById('review-single-loading');
+        const results = document.getElementById('review-single-results');
+        const error = document.getElementById('review-single-error');
+
+        // Show modal in loading state
+        modal.classList.remove('hidden');
+        loading.classList.remove('hidden');
+        results.classList.add('hidden');
+        error.classList.add('hidden');
+
+        // Show loading state on button
+        const originalHtml = button.innerHTML;
+        button.disabled = true;
+        button.innerHTML = `
+            <svg class="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+            </svg>
+        `;
+
+        try {
+            const response = await fetch(`/api/review/${fileId}/${language}/review-single`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ key, source, translation }),
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.detail || 'Review failed');
+            }
+
+            const data = await response.json();
+            showReviewResults(data);
+
+        } catch (err) {
+            showReviewError(err.message);
+        } finally {
+            button.disabled = false;
+            button.innerHTML = originalHtml;
+        }
+    }
+
+    function showReviewResults(data) {
+        const loading = document.getElementById('review-single-loading');
+        const results = document.getElementById('review-single-results');
+        const issuesSection = document.getElementById('review-issues-section');
+        const noIssues = document.getElementById('review-no-issues');
+        const issuesList = document.getElementById('review-issues-list');
+        const suggestionsList = document.getElementById('review-suggestions-list');
+
+        // Hide loading, show results
+        loading.classList.add('hidden');
+        results.classList.remove('hidden');
+
+        // Show current translation
+        document.getElementById('review-current-translation').textContent = data.original_translation;
+
+        // Show issues or "no issues" message
+        if (data.issues && data.issues.length > 0) {
+            issuesSection.classList.remove('hidden');
+            noIssues.classList.add('hidden');
+
+            issuesList.innerHTML = data.issues.map(issue => `
+                <div class="flex items-start space-x-2 text-yellow-400 text-sm">
+                    <svg class="w-4 h-4 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                              d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                    </svg>
+                    <span>${escapeHtml(issue)}</span>
+                </div>
+            `).join('');
+        } else {
+            issuesSection.classList.add('hidden');
+            noIssues.classList.remove('hidden');
+        }
+
+        // Show suggestions with Apply buttons
+        if (data.suggestions && data.suggestions.length > 0) {
+            suggestionsList.innerHTML = data.suggestions.map((suggestion, index) => `
+                <div class="bg-gray-750 rounded-lg p-3 flex items-start justify-between space-x-3">
+                    <div class="flex-1 min-w-0">
+                        <div class="text-white break-words">${escapeHtml(suggestion.text)}</div>
+                        <div class="text-xs text-gray-500 mt-1">${escapeHtml(suggestion.explanation)}</div>
+                    </div>
+                    <button
+                        class="apply-suggestion-btn flex-shrink-0 bg-emerald-600 hover:bg-emerald-700 text-white text-xs px-3 py-1.5 rounded font-medium transition-colors"
+                        data-suggestion="${escapeHtml(suggestion.text)}"
+                    >
+                        Apply
+                    </button>
+                </div>
+            `).join('');
+
+            setupApplySuggestionButtons();
+        } else {
+            suggestionsList.innerHTML = '<div class="text-gray-500 text-sm">No suggestions available</div>';
+        }
+    }
+
+    function showReviewError(message) {
+        const loading = document.getElementById('review-single-loading');
+        const error = document.getElementById('review-single-error');
+
+        loading.classList.add('hidden');
+        error.classList.remove('hidden');
+
+        document.getElementById('review-error-message').textContent = message;
+    }
+
+    function setupApplySuggestionButtons() {
+        document.querySelectorAll('.apply-suggestion-btn').forEach(btn => {
+            btn.addEventListener('click', async function() {
+                const suggestion = this.dataset.suggestion;
+                await applySuggestion(currentReviewKey, suggestion, this);
+            });
+        });
+    }
+
+    async function applySuggestion(key, newTranslation, button) {
+        const originalText = button.textContent;
+        button.disabled = true;
+        button.textContent = 'Applying...';
+
+        try {
+            const response = await fetch(`/api/review/${fileId}/${language}/${encodeURIComponent(key)}`, {
+                method: 'PUT',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    translation: newTranslation,
+                    state: 'translated',
+                }),
+            });
+
+            if (!response.ok) throw new Error('Failed to apply');
+
+            // Update the table row
+            const row = document.querySelector(`tr[data-key="${CSS.escape(key)}"]`);
+            const input = row?.querySelector('.translation-input');
+            if (input) {
+                input.value = newTranslation;
+                input.dataset.original = newTranslation;
+                input.dataset.translation = newTranslation;
+            }
+
+            // Update the review button's data-translation
+            const reviewBtn = row?.querySelector('.review-single-btn');
+            if (reviewBtn) {
+                reviewBtn.dataset.translation = newTranslation;
+            }
+
+            // Update state badge to translated
+            const stateBadge = row?.querySelector('.state-badge');
+            if (stateBadge) {
+                stateBadge.className = 'state-badge bg-emerald-600 text-white text-xs px-2 py-1 rounded';
+                stateBadge.textContent = 'Translated';
+            }
+
+            // Close modal and show success
+            document.getElementById('review-single-modal').classList.add('hidden');
+            showToast('Suggestion applied successfully', 'success');
+
+        } catch (err) {
+            showToast(err.message, 'error');
+            button.disabled = false;
+            button.textContent = originalText;
+        }
+    }
+
+    // Review modal close handlers
+    document.getElementById('close-review-single')?.addEventListener('click', () => {
+        document.getElementById('review-single-modal').classList.add('hidden');
+    });
+
+    document.getElementById('close-review-error')?.addEventListener('click', () => {
+        document.getElementById('review-single-modal').classList.add('hidden');
+    });
+
+    // Close on background click
+    document.getElementById('review-single-modal')?.addEventListener('click', (e) => {
+        if (e.target === e.currentTarget) {
+            e.currentTarget.classList.add('hidden');
+        }
+    });
 
     // Translate all untranslated
     document.getElementById('translate-all-btn').addEventListener('click', async () => {
