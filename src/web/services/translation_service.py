@@ -458,3 +458,41 @@ class TranslationService:
                 })
 
         return untranslated
+
+    def add_language(self, file_content: str, language: str) -> str:
+        """
+        Add a new language to the xcstrings file.
+
+        Adds a placeholder entry for the first translatable string to register
+        the language with Xcode. The entry uses state "new" which Xcode treats
+        as needing translation.
+
+        Args:
+            file_content: JSON content of the .xcstrings file
+            language: Language code to add (e.g., 'ja', 'pt', 'zh-Hans')
+
+        Returns:
+            Updated JSON string with the new language added
+        """
+        xcstrings = self.parser.parse_string(file_content)
+
+        # Check if language already exists
+        existing_languages = set()
+        for entry in xcstrings.strings.values():
+            existing_languages.update(entry.localizations.keys())
+
+        if language in existing_languages:
+            raise ValueError(f"Language '{language}' already exists")
+
+        # Add a single placeholder entry to register the language with Xcode
+        # We pick the first translatable string and add a "new" state entry
+        translatable = xcstrings.get_translatable_strings()
+        if translatable:
+            first_key = next(iter(translatable))
+            if first_key in xcstrings.strings:
+                # Use the source value as the initial "translation" with "new" state
+                # This marks it as needing translation in Xcode
+                source_value = translatable[first_key]
+                xcstrings.strings[first_key].set_translation(language, source_value, "new")
+
+        return self.writer.to_string(xcstrings)

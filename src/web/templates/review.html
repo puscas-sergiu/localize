@@ -25,12 +25,23 @@
 <!-- Review page content -->
 <div class="flex h-[calc(100vh-6rem)]">
     <!-- Left Sidebar: Language Navigation -->
-    <div id="language-sidebar" class="w-56 bg-gray-800 border-r border-gray-700 flex-shrink-0 overflow-y-auto">
+    <div id="language-sidebar" class="w-56 bg-gray-800 border-r border-gray-700 flex-shrink-0 flex flex-col">
         <div class="px-4 py-3 border-b border-gray-700">
             <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider">Languages</h3>
         </div>
-        <div id="language-list" class="py-2">
+        <div id="language-list" class="py-2 flex-1 overflow-y-auto">
             <div class="px-4 py-2 text-gray-500 text-sm">Loading...</div>
+        </div>
+        <div class="p-3 border-t border-gray-700">
+            <button
+                id="add-language-btn"
+                class="w-full bg-gray-700 text-gray-300 px-3 py-2 rounded-lg text-sm font-medium hover:bg-gray-600 transition-colors flex items-center justify-center space-x-2"
+            >
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                </svg>
+                <span>Add Language</span>
+            </button>
         </div>
     </div>
 
@@ -237,6 +248,81 @@
                 >
                     Close
                 </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Language Modal -->
+    <div id="add-language-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-gray-800 rounded-lg border border-gray-700 p-6 max-w-md w-full mx-4">
+            <h3 class="text-lg font-semibold text-white mb-4">Add New Language</h3>
+
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-300 mb-2">Select a language or enter a code</label>
+                    <select
+                        id="language-select"
+                        class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white focus:ring-emerald-500 focus:border-emerald-500"
+                    >
+                        <option value="">-- Select a language --</option>
+                        <option value="ar">Arabic (ar)</option>
+                        <option value="zh-Hans">Chinese Simplified (zh-Hans)</option>
+                        <option value="zh-Hant">Chinese Traditional (zh-Hant)</option>
+                        <option value="cs">Czech (cs)</option>
+                        <option value="da">Danish (da)</option>
+                        <option value="nl">Dutch (nl)</option>
+                        <option value="fi">Finnish (fi)</option>
+                        <option value="el">Greek (el)</option>
+                        <option value="he">Hebrew (he)</option>
+                        <option value="hi">Hindi (hi)</option>
+                        <option value="hu">Hungarian (hu)</option>
+                        <option value="id">Indonesian (id)</option>
+                        <option value="ja">Japanese (ja)</option>
+                        <option value="ko">Korean (ko)</option>
+                        <option value="ms">Malay (ms)</option>
+                        <option value="nb">Norwegian Bokmal (nb)</option>
+                        <option value="pl">Polish (pl)</option>
+                        <option value="pt-BR">Portuguese Brazil (pt-BR)</option>
+                        <option value="pt-PT">Portuguese Portugal (pt-PT)</option>
+                        <option value="ru">Russian (ru)</option>
+                        <option value="sk">Slovak (sk)</option>
+                        <option value="sv">Swedish (sv)</option>
+                        <option value="th">Thai (th)</option>
+                        <option value="tr">Turkish (tr)</option>
+                        <option value="uk">Ukrainian (uk)</option>
+                        <option value="vi">Vietnamese (vi)</option>
+                        <option value="custom">Other (enter code below)</option>
+                    </select>
+                </div>
+
+                <div id="custom-language-input" class="hidden">
+                    <label class="block text-sm font-medium text-gray-300 mb-2">Custom language code</label>
+                    <input
+                        type="text"
+                        id="custom-language-code"
+                        placeholder="e.g., ca, bg, hr"
+                        class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white placeholder-gray-500 focus:ring-emerald-500 focus:border-emerald-500"
+                    >
+                    <p class="text-xs text-gray-500 mt-1">Use ISO 639-1 codes (e.g., 'ja') or BCP 47 tags (e.g., 'zh-Hans')</p>
+                </div>
+
+                <div id="add-language-error" class="hidden text-red-400 text-sm"></div>
+
+                <div class="flex space-x-3 pt-4">
+                    <button
+                        id="cancel-add-language"
+                        class="flex-1 bg-gray-700 text-white py-2 px-4 rounded-lg font-medium hover:bg-gray-600 transition-colors"
+                    >
+                        Cancel
+                    </button>
+                    <button
+                        id="confirm-add-language"
+                        class="flex-1 bg-emerald-600 text-white py-2 px-4 rounded-lg font-medium hover:bg-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        disabled
+                    >
+                        Add Language
+                    </button>
+                </div>
             </div>
         </div>
     </div>
@@ -744,6 +830,92 @@
 
         loadTranslations(currentFilter);
     }
+
+    // Add Language Modal
+    const addLanguageModal = document.getElementById('add-language-modal');
+    const languageSelect = document.getElementById('language-select');
+    const customLanguageInput = document.getElementById('custom-language-input');
+    const customLanguageCode = document.getElementById('custom-language-code');
+    const addLanguageError = document.getElementById('add-language-error');
+    const confirmAddLanguageBtn = document.getElementById('confirm-add-language');
+
+    document.getElementById('add-language-btn').addEventListener('click', () => {
+        // Reset modal state
+        languageSelect.value = '';
+        customLanguageCode.value = '';
+        customLanguageInput.classList.add('hidden');
+        addLanguageError.classList.add('hidden');
+        confirmAddLanguageBtn.disabled = true;
+        addLanguageModal.classList.remove('hidden');
+    });
+
+    document.getElementById('cancel-add-language').addEventListener('click', () => {
+        addLanguageModal.classList.add('hidden');
+    });
+
+    languageSelect.addEventListener('change', () => {
+        const value = languageSelect.value;
+        if (value === 'custom') {
+            customLanguageInput.classList.remove('hidden');
+            confirmAddLanguageBtn.disabled = !customLanguageCode.value.trim();
+        } else {
+            customLanguageInput.classList.add('hidden');
+            confirmAddLanguageBtn.disabled = !value;
+        }
+        addLanguageError.classList.add('hidden');
+    });
+
+    customLanguageCode.addEventListener('input', () => {
+        confirmAddLanguageBtn.disabled = !customLanguageCode.value.trim();
+        addLanguageError.classList.add('hidden');
+    });
+
+    confirmAddLanguageBtn.addEventListener('click', async () => {
+        const selectedValue = languageSelect.value;
+        const langCode = selectedValue === 'custom'
+            ? customLanguageCode.value.trim()
+            : selectedValue;
+
+        if (!langCode) return;
+
+        confirmAddLanguageBtn.disabled = true;
+        confirmAddLanguageBtn.innerHTML = `
+            <svg class="animate-spin h-5 w-5 mx-auto" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+        `;
+
+        try {
+            const response = await fetch(`/api/languages/${fileId}`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ language: langCode }),
+            });
+
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.detail || 'Failed to add language');
+            }
+
+            const result = await response.json();
+
+            // Success - close modal and refresh sidebar
+            addLanguageModal.classList.add('hidden');
+            const appliedMsg = result.applied_to_disk ? ' (saved to file)' : '';
+            showToast(`Added language: ${langCode}${appliedMsg}`, 'success');
+            loadLanguageSidebar();
+
+            // Navigate to the new language
+            window.location.href = `/review/${langCode}`;
+
+        } catch (error) {
+            addLanguageError.textContent = error.message;
+            addLanguageError.classList.remove('hidden');
+            confirmAddLanguageBtn.disabled = false;
+            confirmAddLanguageBtn.textContent = 'Add Language';
+        }
+    });
 
     // Initialize
     // Parse URL params for initial filter (e.g., ?filter=not_translated from badge link)

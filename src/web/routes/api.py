@@ -38,6 +38,10 @@ class DirectFileConfigRequest(BaseModel):
     file_path: str
 
 
+class AddLanguageRequest(BaseModel):
+    language: str
+
+
 # File endpoints
 @router.post("/files/upload")
 async def upload_file(request: Request, file: UploadFile = File(...)):
@@ -609,3 +613,40 @@ async def apply_direct_file(request: Request):
         raise HTTPException(500, message)
 
     return {"status": "applied", "message": message}
+
+
+# Language management endpoints
+@router.post("/languages/{file_id}")
+async def add_language(request: Request, file_id: str, body: AddLanguageRequest):
+    """Add a new language to a file."""
+    file_storage = request.app.state.file_storage
+    direct_service = request.app.state.direct_file_service
+
+    content = file_storage.get_content_string(file_id)
+    if not content:
+        raise HTTPException(404, "File not found")
+
+    service = TranslationService()
+
+    try:
+        updated_content = service.add_language(content, body.language)
+        file_storage.update_content(file_id, updated_content.encode("utf-8"))
+
+        # Get updated stats
+        stats = service.get_file_stats(updated_content)
+
+        # Auto-apply if using direct file mode
+        applied = False
+        config = direct_service.get_config()
+        if config and config.file_id == file_id:
+            success, message = direct_service.apply()
+            applied = success
+
+        return {
+            "status": "added",
+            "language": body.language,
+            "stats": stats,
+            "applied_to_disk": applied,
+        }
+    except ValueError as e:
+        raise HTTPException(400, str(e))
