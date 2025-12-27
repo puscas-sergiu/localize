@@ -7,14 +7,8 @@
     <!-- Header -->
     <div class="flex items-center justify-between">
         <div>
-            <div class="flex items-center space-x-2 text-gray-400 text-sm mb-2">
-                <a href="/" class="hover:text-white">Dashboard</a>
-                <span>/</span>
-                <a href="/stats/{{ file_id }}" class="hover:text-white">{{ metadata.original_name }}</a>
-                <span>/</span>
-                <span>Translate</span>
-            </div>
             <h1 class="text-3xl font-bold text-white">Translate</h1>
+            <p class="text-gray-400 mt-1">{{ metadata.original_name }}</p>
         </div>
     </div>
 
@@ -157,12 +151,21 @@
 
         <div class="flex space-x-3 mt-6">
             <a
-                href="/stats/{{ file_id }}"
+                href="/stats"
                 class="flex-1 bg-gray-700 text-white py-2 px-4 rounded-lg font-medium text-center hover:bg-gray-600 transition-colors"
             >
                 View Stats
             </a>
+            <!-- Direct mode: Apply button (hidden by default) -->
+            <button
+                id="apply-to-file-btn"
+                class="hidden flex-1 bg-emerald-600 text-white py-2 px-4 rounded-lg font-medium text-center hover:bg-emerald-700 transition-colors"
+            >
+                Apply to File
+            </button>
+            <!-- Upload mode: Download button -->
             <a
+                id="download-btn"
                 href="/api/files/{{ file_id }}/download"
                 class="flex-1 bg-emerald-600 text-white py-2 px-4 rounded-lg font-medium text-center hover:bg-emerald-700 transition-colors"
             >
@@ -298,6 +301,9 @@
         document.getElementById('progress-section').classList.add('hidden');
         document.getElementById('complete-section').classList.remove('hidden');
 
+        // Update header badge with untranslated count
+        window.updateUntranslatedBadge(fileId);
+
         const summary = document.getElementById('complete-summary');
         let html = `
             <div class="text-gray-400">
@@ -345,7 +351,45 @@
             eventSource.close();
         }
         showToast('Translation cancelled', 'warning');
-        window.location.href = `/stats/${fileId}`;
+        window.location.href = '/';
+    });
+
+    // Check if in direct mode and show Apply button
+    let isDirectMode = false;
+    async function checkDirectMode() {
+        try {
+            const response = await fetch('/api/direct/config');
+            const data = await response.json();
+
+            if (data.configured && data.file_id === fileId) {
+                isDirectMode = true;
+                document.getElementById('apply-to-file-btn').classList.remove('hidden');
+                document.getElementById('download-btn').classList.add('hidden');
+            }
+        } catch (e) {
+            // Ignore, show download button by default
+        }
+    }
+
+    checkDirectMode();
+
+    // Update header badge on page load
+    window.updateUntranslatedBadge(fileId);
+
+    // Apply button handler
+    document.getElementById('apply-to-file-btn').addEventListener('click', async () => {
+        if (!confirm('Apply translations to the configured file?')) return;
+
+        try {
+            const response = await fetch('/api/direct/apply', {method: 'POST'});
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.detail || 'Failed to apply');
+            }
+            showToast('Translations applied to file!', 'success');
+        } catch (error) {
+            showToast(error.message, 'error');
+        }
     });
 </script>
 {% endblock %}

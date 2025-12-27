@@ -374,28 +374,56 @@ class TranslationService:
         language: str,
         state_filter: Optional[str] = None,
     ) -> list[dict]:
-        """Get translations for a specific language."""
+        """Get translations for a specific language, including untranslated strings."""
         xcstrings = self.parser.parse_string(file_content)
+        source_lang = xcstrings.source_language
+        translatable = xcstrings.get_translatable_strings()
 
         translations = []
         for key, entry in xcstrings.strings.items():
-            if not entry.has_translation(language):
+            # Skip non-translatable strings
+            if key not in translatable:
                 continue
 
-            loc = entry.localizations.get(language)
-            if not loc or not loc.string_unit:
-                continue
+            source = entry.get_source_value(source_lang)
+            has_translation = entry.has_translation(language)
 
-            state = loc.string_unit.state
-            if state_filter and state != state_filter:
-                continue
+            if state_filter == "not_translated":
+                # Only show untranslated strings
+                if has_translation:
+                    continue
+                translations.append({
+                    "key": key,
+                    "source": source,
+                    "translation": "",
+                    "state": "not_translated",
+                })
+            elif not has_translation:
+                # For 'All' filter (None or ""), include untranslated strings
+                if state_filter is None or state_filter == "":
+                    translations.append({
+                        "key": key,
+                        "source": source,
+                        "translation": "",
+                        "state": "not_translated",
+                    })
+                # For other specific filters (translated, needs_review), skip untranslated
+            else:
+                # Has translation - apply existing filter logic
+                loc = entry.localizations.get(language)
+                if not loc or not loc.string_unit:
+                    continue
 
-            translations.append({
-                "key": key,
-                "source": entry.get_source_value(xcstrings.source_language),
-                "translation": loc.string_unit.value,
-                "state": state,
-            })
+                state = loc.string_unit.state
+                if state_filter and state != state_filter:
+                    continue
+
+                translations.append({
+                    "key": key,
+                    "source": source,
+                    "translation": loc.string_unit.value,
+                    "state": state,
+                })
 
         return translations
 

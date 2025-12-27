@@ -1,72 +1,124 @@
 {% extends "base.html" %}
 
-{% block title %}Review {{ language|upper }} - {{ metadata.original_name }}{% endblock %}
+{% block title %}{% if file_configured %}Review {{ language|upper }} - {{ metadata.original_name }}{% else %}Review - MintDeck Localizer{% endif %}{% endblock %}
 
 {% block content %}
-<div class="space-y-8">
-    <!-- Header -->
-    <div class="flex items-center justify-between">
-        <div>
-            <div class="flex items-center space-x-2 text-gray-400 text-sm mb-2">
-                <a href="/" class="hover:text-white">Dashboard</a>
-                <span>/</span>
-                <a href="/stats/{{ file_id }}" class="hover:text-white">{{ metadata.original_name }}</a>
-                <span>/</span>
-                <span>Review {{ language|upper }}</span>
+{% if not file_configured %}
+<!-- No file configured state -->
+<div class="flex flex-col items-center justify-center min-h-[60vh]">
+    <svg class="h-20 w-20 text-gray-600 mb-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+    </svg>
+    <h1 class="text-2xl font-bold text-white mb-3">No File Configured</h1>
+    <p class="text-gray-400 mb-8 text-center max-w-md">
+        Configure a localization file to start reviewing and translating your strings.
+    </p>
+    <a href="/settings" class="bg-emerald-600 text-white px-8 py-3 rounded-lg font-medium hover:bg-emerald-700 transition-colors flex items-center space-x-2">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+        </svg>
+        <span>Go to Settings</span>
+    </a>
+</div>
+{% else %}
+<!-- Review page content -->
+<div class="flex h-[calc(100vh-6rem)]">
+    <!-- Left Sidebar: Language Navigation -->
+    <div id="language-sidebar" class="w-56 bg-gray-800 border-r border-gray-700 flex-shrink-0 overflow-y-auto">
+        <div class="px-4 py-3 border-b border-gray-700">
+            <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider">Languages</h3>
+        </div>
+        <div id="language-list" class="py-2">
+            <div class="px-4 py-2 text-gray-500 text-sm">Loading...</div>
+        </div>
+    </div>
+
+    <!-- Main Content Area -->
+    <div class="flex-1 flex flex-col overflow-hidden">
+        <!-- Header -->
+        <div class="px-6 py-4 border-b border-gray-700 bg-gray-800">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h1 class="text-xl font-bold text-white">Review <span id="lang-title">{{ language|upper }}</span> Translations</h1>
+                    <p class="text-sm text-gray-400 mt-1">{{ metadata.original_name }}</p>
+                </div>
+                <div class="flex space-x-3">
+                    <button
+                        id="translate-all-btn"
+                        class="bg-emerald-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-emerald-700 transition-colors flex items-center space-x-2"
+                    >
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129"></path>
+                        </svg>
+                        <span>Translate All Untranslated</span>
+                    </button>
+                    <button
+                        id="verify-btn"
+                        class="bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors"
+                    >
+                        Run LLM Verification
+                    </button>
+                    <a
+                        href="/api/files/{{ file_id }}/download"
+                        class="bg-gray-700 text-gray-300 px-4 py-2 rounded-lg font-medium hover:bg-gray-600 transition-colors"
+                    >
+                        Download
+                    </a>
+                </div>
             </div>
-            <h1 class="text-3xl font-bold text-white">Review Translations</h1>
-            <p class="mt-2 text-gray-400">{{ language|upper }} translations for {{ metadata.original_name }}</p>
         </div>
-        <div class="flex space-x-3">
-            <button
-                id="verify-btn"
-                class="bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors"
-            >
-                Run LLM Verification
-            </button>
-            <a
-                href="/api/files/{{ file_id }}/download"
-                class="bg-gray-700 text-gray-300 px-4 py-2 rounded-lg font-medium hover:bg-gray-600 transition-colors"
-            >
-                Download
-            </a>
-        </div>
-    </div>
 
-    <!-- Filter -->
-    <div class="bg-gray-800 rounded-lg border border-gray-700 p-4">
-        <div class="flex items-center space-x-4">
-            <span class="text-gray-400">Filter:</span>
-            <label class="flex items-center space-x-2 cursor-pointer">
-                <input type="radio" name="state-filter" value="" checked class="text-emerald-500 bg-gray-600 border-gray-500 focus:ring-emerald-500">
-                <span class="text-white">All</span>
-            </label>
-            <label class="flex items-center space-x-2 cursor-pointer">
-                <input type="radio" name="state-filter" value="translated" class="text-emerald-500 bg-gray-600 border-gray-500 focus:ring-emerald-500">
-                <span class="text-white">Translated</span>
-            </label>
-            <label class="flex items-center space-x-2 cursor-pointer">
-                <input type="radio" name="state-filter" value="needs_review" class="text-emerald-500 bg-gray-600 border-gray-500 focus:ring-emerald-500">
-                <span class="text-white">Needs Review</span>
-            </label>
-        </div>
-    </div>
-
-    <!-- Translations Table -->
-    <div class="bg-gray-800 rounded-lg border border-gray-700">
-        <div class="px-6 py-4 border-b border-gray-700 flex items-center justify-between">
-            <h2 class="text-lg font-semibold text-white">Translations</h2>
+        <!-- Filter Bar -->
+        <div class="px-6 py-3 bg-gray-750 border-b border-gray-700 flex items-center justify-between">
+            <div class="flex items-center space-x-4">
+                <span class="text-gray-400 text-sm">Filter:</span>
+                <label class="flex items-center space-x-2 cursor-pointer">
+                    <input type="radio" name="state-filter" value="" checked class="text-emerald-500 bg-gray-600 border-gray-500 focus:ring-emerald-500">
+                    <span class="text-white text-sm">All</span>
+                </label>
+                <label class="flex items-center space-x-2 cursor-pointer">
+                    <input type="radio" name="state-filter" value="translated" class="text-emerald-500 bg-gray-600 border-gray-500 focus:ring-emerald-500">
+                    <span class="text-white text-sm">Translated</span>
+                </label>
+                <label class="flex items-center space-x-2 cursor-pointer">
+                    <input type="radio" name="state-filter" value="needs_review" class="text-emerald-500 bg-gray-600 border-gray-500 focus:ring-emerald-500">
+                    <span class="text-white text-sm">Needs Review</span>
+                </label>
+                <label class="flex items-center space-x-2 cursor-pointer">
+                    <input type="radio" name="state-filter" value="not_translated" class="text-emerald-500 bg-gray-600 border-gray-500 focus:ring-emerald-500">
+                    <span class="text-white text-sm">Not Translated</span>
+                </label>
+            </div>
             <span id="translation-count" class="text-gray-400 text-sm"></span>
         </div>
 
-        <div id="translations-container" class="divide-y divide-gray-700">
-            <!-- Loading state -->
-            <div class="px-6 py-12 text-center">
-                <svg class="animate-spin mx-auto h-8 w-8 text-emerald-500" fill="none" viewBox="0 0 24 24">
-                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-            </div>
+        <!-- Translations Table -->
+        <div class="flex-1 overflow-auto">
+            <table class="w-full">
+                <thead class="bg-gray-750 sticky top-0 z-10">
+                    <tr>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider w-1/4">Key</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider w-1/4">Source (EN)</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+                            Translation (<span id="lang-header">{{ language|upper }}</span>)
+                        </th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider w-28">State</th>
+                        <th class="px-4 py-3 text-right text-xs font-medium text-gray-400 uppercase tracking-wider w-20">Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="translations-tbody" class="divide-y divide-gray-700">
+                    <!-- Loading state -->
+                    <tr>
+                        <td colspan="5" class="px-6 py-12 text-center">
+                            <svg class="animate-spin mx-auto h-8 w-8 text-emerald-500" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
         </div>
     </div>
 
@@ -149,16 +201,120 @@
             </div>
         </div>
     </div>
+
+    <!-- Translation Progress Modal -->
+    <div id="translate-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-gray-800 rounded-lg border border-gray-700 p-6 max-w-lg w-full mx-4">
+            <h3 class="text-lg font-semibold text-white mb-4">Translating Untranslated Strings</h3>
+
+            <div id="translate-progress" class="space-y-4">
+                <div>
+                    <div class="flex justify-between text-sm text-gray-400 mb-2">
+                        <span id="translate-status">Starting translation...</span>
+                        <span id="translate-percent">0%</span>
+                    </div>
+                    <div class="bg-gray-700 rounded-full h-3">
+                        <div id="translate-progress-bar" class="bg-emerald-500 rounded-full h-3 transition-all duration-300" style="width: 0%"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="translate-results" class="hidden space-y-4">
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="bg-gray-750 rounded-lg p-4 text-center">
+                        <div class="text-2xl font-bold text-emerald-400" id="translate-green">0</div>
+                        <div class="text-sm text-gray-400">High Quality</div>
+                    </div>
+                    <div class="bg-gray-750 rounded-lg p-4 text-center">
+                        <div class="text-2xl font-bold text-yellow-400" id="translate-yellow">0</div>
+                        <div class="text-sm text-gray-400">Needs Review</div>
+                    </div>
+                </div>
+
+                <button
+                    id="close-translate"
+                    class="w-full bg-gray-700 text-white py-2 px-4 rounded-lg font-medium hover:bg-gray-600 transition-colors"
+                >
+                    Close
+                </button>
+            </div>
+        </div>
+    </div>
 </div>
+{% endif %}
 {% endblock %}
 
 {% block scripts %}
+{% if file_configured %}
 <script>
     const fileId = '{{ file_id }}';
-    const language = '{{ language }}';
+    let language = '{{ language }}';
     let translations = [];
     let currentFilter = '';
 
+    // Language display names
+    const languageNames = {
+        'en': 'English',
+        'de': 'German',
+        'fr': 'French',
+        'it': 'Italian',
+        'es': 'Spanish',
+        'ro': 'Romanian',
+    };
+
+    const flagEmojis = {
+        'en': '🇺🇸',
+        'de': '🇩🇪',
+        'fr': '🇫🇷',
+        'it': '🇮🇹',
+        'es': '🇪🇸',
+        'ro': '🇷🇴',
+    };
+
+    // Load language sidebar
+    async function loadLanguageSidebar() {
+        try {
+            const response = await fetch(`/api/stats/${fileId}`);
+            if (!response.ok) throw new Error('Failed to load stats');
+
+            const stats = await response.json();
+            const languageList = document.getElementById('language-list');
+
+            let html = '';
+            for (const lang of Object.keys(stats.coverage).sort()) {
+                const coverage = stats.coverage[lang];
+                const isActive = lang === language;
+                const activeClass = isActive ? 'bg-emerald-600/20 border-l-2 border-emerald-500' : 'border-l-2 border-transparent';
+                const colorClass = coverage.percentage >= 90 ? 'text-emerald-400' :
+                                  coverage.percentage >= 50 ? 'text-yellow-400' : 'text-red-400';
+
+                html += `
+                    <a
+                        href="/review/${lang}"
+                        class="block px-4 py-3 hover:bg-gray-700 transition-colors ${activeClass}"
+                    >
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center space-x-2">
+                                <span class="text-base">${flagEmojis[lang] || '🌐'}</span>
+                                <span class="text-white text-sm font-medium">${languageNames[lang] || lang.toUpperCase()}</span>
+                            </div>
+                            <span class="${colorClass} text-sm font-medium">${coverage.percentage}%</span>
+                        </div>
+                        <div class="mt-1 text-xs text-gray-500 pl-6">
+                            ${coverage.translated}/${coverage.total}
+                        </div>
+                    </a>
+                `;
+            }
+
+            languageList.innerHTML = html || '<div class="px-4 py-2 text-gray-500 text-sm">No languages found</div>';
+
+        } catch (error) {
+            console.error('Failed to load language sidebar:', error);
+        }
+    }
+
+    // Load translations
     async function loadTranslations(stateFilter = '') {
         try {
             let url = `/api/review/${fileId}/${language}`;
@@ -173,6 +329,8 @@
             translations = data.translations;
             currentFilter = stateFilter;
             renderTranslations();
+            // Update header badge with untranslated count
+            window.updateUntranslatedBadge(fileId);
 
         } catch (error) {
             showToast(error.message, 'error');
@@ -180,92 +338,304 @@
     }
 
     function renderTranslations() {
-        const container = document.getElementById('translations-container');
+        const tbody = document.getElementById('translations-tbody');
         const count = document.getElementById('translation-count');
 
-        count.textContent = `${translations.length} translations`;
+        count.textContent = `${translations.length} strings`;
 
         if (translations.length === 0) {
-            container.innerHTML = `
-                <div class="px-6 py-12 text-center text-gray-400">
-                    No translations found
-                </div>
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="5" class="px-6 py-12 text-center text-gray-400">
+                        No translations found
+                    </td>
+                </tr>
             `;
             return;
         }
 
         let html = '';
         for (const t of translations) {
+            const isUntranslated = t.state === 'not_translated' || !t.translation;
             const stateColor = t.state === 'translated' ? 'bg-emerald-600' :
-                              t.state === 'needs_review' ? 'bg-yellow-600' : 'bg-gray-600';
+                              t.state === 'needs_review' ? 'bg-yellow-600' :
+                              t.state === 'not_translated' ? 'bg-gray-500' : 'bg-gray-600';
             const stateText = t.state === 'translated' ? 'Translated' :
-                             t.state === 'needs_review' ? 'Needs Review' : t.state;
+                             t.state === 'needs_review' ? 'Needs Review' :
+                             t.state === 'not_translated' ? 'New' : t.state;
+
+            const rowBgClass = isUntranslated ? 'bg-amber-900/10' : '';
+            const inputBorderClass = isUntranslated ? 'border-dashed border-amber-500/50' : 'border-gray-600';
 
             html += `
-                <div class="px-6 py-4 hover:bg-gray-750 transition-colors" data-key="${escapeHtml(t.key)}">
-                    <div class="flex items-start justify-between mb-2">
-                        <code class="text-sm text-gray-400 break-all">${escapeHtml(t.key)}</code>
-                        <span class="${stateColor} text-white text-xs px-2 py-1 rounded">${stateText}</span>
-                    </div>
-
-                    <div class="grid grid-cols-2 gap-4">
-                        <div>
-                            <div class="text-xs text-gray-500 mb-1">Source (EN)</div>
-                            <div class="text-gray-300">${escapeHtml(t.source)}</div>
+                <tr class="${rowBgClass} hover:bg-gray-750 transition-colors" data-key="${escapeHtml(t.key)}">
+                    <td class="px-4 py-3">
+                        <code class="text-xs text-gray-400 break-all">${escapeHtml(t.key)}</code>
+                    </td>
+                    <td class="px-4 py-3 text-gray-300 text-sm">${escapeHtml(t.source)}</td>
+                    <td class="px-4 py-3">
+                        <div class="relative">
+                            <input
+                                type="text"
+                                class="translation-input w-full bg-gray-700 border ${inputBorderClass} rounded px-3 py-2 text-white text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                                value="${escapeHtml(t.translation)}"
+                                placeholder="${isUntranslated ? 'Not translated' : ''}"
+                                data-key="${escapeHtml(t.key)}"
+                                data-original="${escapeHtml(t.translation)}"
+                                data-source="${escapeHtml(t.source)}"
+                            >
+                            <div class="save-indicator hidden absolute right-2 top-1/2 -translate-y-1/2">
+                                <svg class="animate-spin h-4 w-4 text-emerald-500" fill="none" viewBox="0 0 24 24">
+                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                            </div>
                         </div>
-                        <div>
-                            <div class="text-xs text-gray-500 mb-1">Translation (${language.toUpperCase()})</div>
-                            <div class="translation-text text-white" data-key="${escapeHtml(t.key)}">${escapeHtml(t.translation)}</div>
-                        </div>
-                    </div>
-
-                    <div class="mt-3 flex justify-end">
-                        <button
-                            onclick="editTranslation('${escapeHtml(t.key)}')"
-                            class="text-emerald-400 hover:text-emerald-300 text-sm"
-                        >
-                            Edit
-                        </button>
-                    </div>
-                </div>
+                    </td>
+                    <td class="px-4 py-3">
+                        <span class="state-badge ${stateColor} text-white text-xs px-2 py-1 rounded">${stateText}</span>
+                    </td>
+                    <td class="px-4 py-3 text-right">
+                        ${isUntranslated ? `
+                            <button
+                                class="translate-single-btn text-blue-400 hover:text-blue-300 p-1"
+                                data-key="${escapeHtml(t.key)}"
+                                data-source="${escapeHtml(t.source)}"
+                                title="Auto-translate this string"
+                            >
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129"></path>
+                                </svg>
+                            </button>
+                        ` : ''}
+                    </td>
+                </tr>
             `;
         }
 
-        container.innerHTML = html;
+        tbody.innerHTML = html;
+        setupInlineEditing();
+        setupTranslateSingleButtons();
     }
 
     function escapeHtml(text) {
+        if (!text) return '';
         const div = document.createElement('div');
         div.textContent = text;
         return div.innerHTML;
     }
 
-    async function editTranslation(key) {
-        const t = translations.find(t => t.key === key);
-        if (!t) return;
+    // Inline editing
+    function setupInlineEditing() {
+        document.querySelectorAll('.translation-input').forEach(input => {
+            input.addEventListener('blur', async function() {
+                const key = this.dataset.key;
+                const original = this.dataset.original;
+                const newValue = this.value.trim();
 
-        const newTranslation = prompt('Edit translation:', t.translation);
-        if (newTranslation === null || newTranslation === t.translation) return;
+                if (newValue !== original && newValue !== '') {
+                    await saveTranslation(key, newValue, this);
+                }
+            });
+
+            input.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    this.blur();
+                } else if (e.key === 'Escape') {
+                    this.value = this.dataset.original;
+                    this.blur();
+                }
+            });
+        });
+    }
+
+    async function saveTranslation(key, translation, inputElement) {
+        const indicator = inputElement.parentElement.querySelector('.save-indicator');
+        indicator?.classList.remove('hidden');
 
         try {
             const response = await fetch(`/api/review/${fileId}/${language}/${encodeURIComponent(key)}`, {
                 method: 'PUT',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({
-                    translation: newTranslation,
+                    translation: translation,
                     state: 'translated',
                 }),
             });
 
-            if (!response.ok) throw new Error('Failed to update translation');
+            if (!response.ok) throw new Error('Failed to save');
 
-            showToast('Translation updated', 'success');
-            loadTranslations(currentFilter);
+            inputElement.dataset.original = translation;
+
+            // Update row styling
+            const row = inputElement.closest('tr');
+            row.classList.remove('bg-amber-900/10');
+            inputElement.classList.remove('border-dashed', 'border-amber-500/50');
+            inputElement.classList.add('border-gray-600');
+
+            // Update state badge
+            const stateBadge = row.querySelector('.state-badge');
+            stateBadge.className = 'state-badge bg-emerald-600 text-white text-xs px-2 py-1 rounded';
+            stateBadge.textContent = 'Translated';
+
+            // Remove translate button if exists
+            const translateBtn = row.querySelector('.translate-single-btn');
+            translateBtn?.remove();
+
+            showToast('Saved', 'success');
 
         } catch (error) {
             showToast(error.message, 'error');
+            inputElement.value = inputElement.dataset.original;
+        } finally {
+            indicator?.classList.add('hidden');
         }
     }
+
+    // Single string translation
+    function setupTranslateSingleButtons() {
+        document.querySelectorAll('.translate-single-btn').forEach(btn => {
+            btn.addEventListener('click', async function() {
+                const key = this.dataset.key;
+                const source = this.dataset.source;
+                await autoTranslateSingle(key, source, this);
+            });
+        });
+    }
+
+    async function autoTranslateSingle(key, source, button) {
+        const row = document.querySelector(`tr[data-key="${CSS.escape(key)}"]`);
+        const input = row?.querySelector('.translation-input');
+
+        // Show loading state
+        const originalHtml = button.innerHTML;
+        button.disabled = true;
+        button.innerHTML = `
+            <svg class="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+        `;
+
+        try {
+            const response = await fetch(`/api/review/${fileId}/${language}/translate-single`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ key, source }),
+            });
+
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.detail || 'Translation failed');
+            }
+
+            const data = await response.json();
+
+            // Update the input field
+            if (input) {
+                input.value = data.translation;
+                input.dataset.original = data.translation;
+                input.classList.remove('border-dashed', 'border-amber-500/50');
+                input.classList.add('border-gray-600');
+            }
+
+            // Update row styling
+            row?.classList.remove('bg-amber-900/10');
+
+            // Update state badge
+            const stateBadge = row?.querySelector('.state-badge');
+            if (stateBadge) {
+                stateBadge.className = data.state === 'translated'
+                    ? 'state-badge bg-emerald-600 text-white text-xs px-2 py-1 rounded'
+                    : 'state-badge bg-yellow-600 text-white text-xs px-2 py-1 rounded';
+                stateBadge.textContent = data.state === 'translated' ? 'Translated' : 'Needs Review';
+            }
+
+            // Remove translate button
+            button.remove();
+
+            showToast(`Translated via ${data.provider}`, 'success');
+
+        } catch (error) {
+            showToast(error.message, 'error');
+            button.disabled = false;
+            button.innerHTML = originalHtml;
+        }
+    }
+
+    // Translate all untranslated
+    document.getElementById('translate-all-btn').addEventListener('click', async () => {
+        const btn = document.getElementById('translate-all-btn');
+        const modal = document.getElementById('translate-modal');
+        const progress = document.getElementById('translate-progress');
+        const results = document.getElementById('translate-results');
+
+        btn.disabled = true;
+        modal.classList.remove('hidden');
+        progress.classList.remove('hidden');
+        results.classList.add('hidden');
+
+        try {
+            const response = await fetch(`/api/review/${fileId}/${language}/translate-all-untranslated`, {
+                method: 'POST',
+            });
+
+            if (!response.ok) throw new Error('Failed to start translation');
+
+            const data = await response.json();
+            connectTranslateSSE(data.job_id);
+
+        } catch (error) {
+            showToast(error.message, 'error');
+            modal.classList.add('hidden');
+            btn.disabled = false;
+        }
+    });
+
+    function connectTranslateSSE(jobId) {
+        const eventSource = new EventSource(`/api/translate/${jobId}/stream`);
+
+        eventSource.addEventListener('progress', (e) => {
+            const data = JSON.parse(e.data);
+            const percentage = data.lang_progress ? Math.round(data.lang_progress * 100) : 0;
+            document.getElementById('translate-progress-bar').style.width = `${percentage}%`;
+            document.getElementById('translate-percent').textContent = `${percentage}%`;
+            document.getElementById('translate-status').textContent = data.message;
+        });
+
+        eventSource.addEventListener('complete', (e) => {
+            eventSource.close();
+            const data = JSON.parse(e.data);
+            showTranslateResults(data);
+        });
+
+        eventSource.addEventListener('error', (e) => {
+            eventSource.close();
+            showToast('Translation failed', 'error');
+            document.getElementById('translate-modal').classList.add('hidden');
+            document.getElementById('translate-all-btn').disabled = false;
+        });
+    }
+
+    function showTranslateResults(data) {
+        document.getElementById('translate-progress').classList.add('hidden');
+        document.getElementById('translate-results').classList.remove('hidden');
+
+        const stats = data.stats_by_language?.[language] || {};
+        document.getElementById('translate-green').textContent = stats.green_count || 0;
+        document.getElementById('translate-yellow').textContent = stats.yellow_count || 0;
+
+        document.getElementById('translate-all-btn').disabled = false;
+
+        // Reload translations and sidebar
+        loadTranslations(currentFilter);
+        loadLanguageSidebar();
+    }
+
+    document.getElementById('close-translate').addEventListener('click', () => {
+        document.getElementById('translate-modal').classList.add('hidden');
+    });
 
     // Filter change
     document.querySelectorAll('input[name="state-filter"]').forEach(radio => {
@@ -274,7 +644,7 @@
         });
     });
 
-    // Verification modal
+    // Verification modal (existing functionality)
     const verifyModal = document.getElementById('verify-modal');
     const verifyConfig = document.getElementById('verify-config');
     const verifyProgress = document.getElementById('verify-progress');
@@ -372,11 +742,22 @@
             issuesList.innerHTML = '<div class="text-center text-gray-400">No issues found!</div>';
         }
 
-        // Reload translations to reflect any changes
         loadTranslations(currentFilter);
     }
 
-    // Load translations on page load
-    loadTranslations();
+    // Initialize
+    // Parse URL params for initial filter (e.g., ?filter=not_translated from badge link)
+    const urlParams = new URLSearchParams(window.location.search);
+    const initialFilter = urlParams.get('filter') || '';
+
+    // Update radio button to match initial filter
+    if (initialFilter) {
+        const radio = document.querySelector(`input[name="state-filter"][value="${initialFilter}"]`);
+        if (radio) radio.checked = true;
+    }
+
+    loadLanguageSidebar();
+    loadTranslations(initialFilter);
 </script>
+{% endif %}
 {% endblock %}

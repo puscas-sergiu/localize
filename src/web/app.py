@@ -9,6 +9,7 @@ from fastapi.templating import Jinja2Templates
 from .routes import pages, api, sse
 from .services.file_storage import FileStorage
 from .services.job_manager import JobManager
+from .services.direct_file_service import DirectFileService
 
 # Paths
 BASE_DIR = Path(__file__).parent
@@ -18,6 +19,7 @@ STATIC_DIR = BASE_DIR / "static"
 # Global services
 file_storage = FileStorage()
 job_manager = JobManager()
+direct_file_service = DirectFileService(file_storage)
 
 
 def create_app() -> FastAPI:
@@ -38,6 +40,7 @@ def create_app() -> FastAPI:
     app.state.templates = templates
     app.state.file_storage = file_storage
     app.state.job_manager = job_manager
+    app.state.direct_file_service = direct_file_service
 
     # Include routers
     app.include_router(pages.router)

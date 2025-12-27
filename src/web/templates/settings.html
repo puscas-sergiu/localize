@@ -1,0 +1,501 @@
+{% extends "base.html" %}
+
+{% block title %}Settings - MintDeck Localizer{% endblock %}
+
+{% block content %}
+<div class="space-y-8">
+    <!-- Header -->
+    <div>
+        <h1 class="text-3xl font-bold text-white">Settings</h1>
+        <p class="mt-2 text-gray-400">Configure your localization file</p>
+    </div>
+
+    <!-- Active File Configuration -->
+    <div id="direct-mode-section" class="bg-gray-800 rounded-lg border border-gray-700 p-6">
+        <div class="flex items-center justify-between mb-4">
+            <h2 class="text-lg font-semibold text-white">Active File</h2>
+            <span id="direct-mode-status" class="text-sm px-3 py-1 rounded-full bg-gray-700 text-gray-400">
+                Not configured
+            </span>
+        </div>
+
+        <!-- Configuration form (shown when not configured) -->
+        <div id="direct-config-form">
+            <p class="text-gray-400 text-sm mb-4">
+                Enter the path to your .xcstrings file to start reviewing and translating.
+            </p>
+            <div class="flex space-x-3">
+                <input
+                    type="text"
+                    id="direct-file-path"
+                    placeholder="/path/to/Localizable.xcstrings"
+                    class="flex-1 bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 text-white placeholder-gray-500 focus:ring-emerald-500 focus:border-emerald-500"
+                >
+                <button
+                    id="direct-config-btn"
+                    class="bg-emerald-600 text-white px-6 py-2 rounded-lg font-medium hover:bg-emerald-700 transition-colors"
+                >
+                    Configure
+                </button>
+            </div>
+        </div>
+
+        <!-- Active configuration (shown when configured) -->
+        <div id="direct-active" class="hidden">
+            <div class="bg-gray-700 rounded-lg p-4 mb-4">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-white font-medium" id="direct-file-name"></p>
+                        <p class="text-sm text-gray-400" id="direct-file-path-display"></p>
+                    </div>
+                    <div class="flex items-center space-x-2 text-sm text-gray-400">
+                        <span>Last synced:</span>
+                        <span id="direct-last-synced">Never</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex space-x-3">
+                <button
+                    id="direct-refresh-btn"
+                    class="flex-1 bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center justify-center"
+                >
+                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                    </svg>
+                    Refresh from Disk
+                </button>
+                <button
+                    id="direct-apply-btn"
+                    class="flex-1 bg-emerald-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-emerald-700 transition-colors flex items-center justify-center"
+                >
+                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                    </svg>
+                    Apply Changes to File
+                </button>
+                <button
+                    id="direct-clear-btn"
+                    class="bg-gray-700 text-gray-300 px-4 py-2 rounded-lg font-medium hover:bg-gray-600 transition-colors flex items-center justify-center"
+                    title="Clear configuration"
+                >
+                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                    Clear
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Upload File Section (collapsed) -->
+    <details class="bg-gray-800 rounded-lg border border-gray-700">
+        <summary class="px-6 py-4 cursor-pointer text-lg font-semibold text-white hover:bg-gray-750 rounded-lg transition-colors">
+            <span class="ml-2">Upload File (Alternative)</span>
+        </summary>
+        <div class="px-6 pb-6">
+            <p class="text-gray-400 text-sm mb-4">
+                Upload a .xcstrings file to work with it temporarily. Use this for quick edits or when you don't have direct file access.
+            </p>
+            <form id="upload-form" class="space-y-4">
+                <div
+                    id="drop-zone"
+                    class="border-2 border-dashed border-gray-600 rounded-lg p-8 text-center hover:border-emerald-500 transition-colors cursor-pointer"
+                >
+                    <svg class="mx-auto h-12 w-12 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+                    </svg>
+                    <p class="mt-2 text-gray-400">
+                        <span class="text-emerald-500 font-medium">Click to upload</span> or drag and drop
+                    </p>
+                    <p class="text-sm text-gray-500">.xcstrings files only</p>
+                    <input type="file" id="file-input" accept=".xcstrings" class="hidden">
+                </div>
+
+                <div id="selected-file" class="hidden bg-gray-700 rounded-lg p-4 flex items-center justify-between">
+                    <div class="flex items-center space-x-3">
+                        <svg class="h-8 w-8 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                        </svg>
+                        <div>
+                            <p id="file-name" class="text-white font-medium"></p>
+                            <p id="file-size" class="text-sm text-gray-400"></p>
+                        </div>
+                    </div>
+                    <button type="button" id="clear-file" class="text-gray-400 hover:text-white">
+                        <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
+
+                <button
+                    type="submit"
+                    id="upload-btn"
+                    disabled
+                    class="w-full bg-emerald-600 text-white py-2 px-4 rounded-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-emerald-700 transition-colors"
+                >
+                    <span id="upload-text">Upload File</span>
+                    <span id="upload-spinner" class="hidden">
+                        <svg class="animate-spin inline h-5 w-5" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        Uploading...
+                    </span>
+                </button>
+            </form>
+        </div>
+    </details>
+
+    <!-- Additional Files Section (collapsed) -->
+    <details class="bg-gray-800 rounded-lg border border-gray-700">
+        <summary class="px-6 py-4 cursor-pointer text-lg font-semibold text-white hover:bg-gray-750 rounded-lg transition-colors">
+            <span class="ml-2">Uploaded Files ({{ files|length }})</span>
+        </summary>
+        <div id="files-list" class="divide-y divide-gray-700">
+            {% if files %}
+                {% for file in files %}
+                <div class="px-6 py-4 flex items-center justify-between hover:bg-gray-750">
+                    <div class="flex items-center space-x-4">
+                        <svg class="h-10 w-10 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                        </svg>
+                        <div>
+                            <p class="text-white font-medium">{{ file.original_name }}</p>
+                            <p class="text-sm text-gray-400">{{ (file.size_bytes / 1024)|round(1) }} KB - {{ file.upload_time[:10] }}</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <a
+                            href="/stats/{{ file.file_id }}"
+                            class="bg-gray-700 text-gray-300 px-3 py-1.5 rounded text-sm hover:bg-gray-600 transition-colors"
+                        >
+                            Stats
+                        </a>
+                        <button
+                            onclick="openReview('{{ file.file_id }}')"
+                            class="bg-blue-600 text-white px-3 py-1.5 rounded text-sm hover:bg-blue-700 transition-colors"
+                        >
+                            Review
+                        </button>
+                        <a
+                            href="/translate/{{ file.file_id }}"
+                            class="bg-emerald-600 text-white px-3 py-1.5 rounded text-sm hover:bg-emerald-700 transition-colors"
+                        >
+                            Translate
+                        </a>
+                        <a
+                            href="/api/files/{{ file.file_id }}/download"
+                            class="bg-gray-700 text-gray-300 px-3 py-1.5 rounded text-sm hover:bg-gray-600 transition-colors"
+                        >
+                            Download
+                        </a>
+                        <button
+                            onclick="deleteFile('{{ file.file_id }}')"
+                            class="text-red-400 hover:text-red-300 p-1.5"
+                        >
+                            <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div class="px-6 py-8 text-center">
+                    <p class="text-gray-400">No uploaded files</p>
+                </div>
+            {% endif %}
+        </div>
+    </details>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Direct Mode State
+    let directConfig = null;
+
+    // Load direct mode config on page load
+    async function loadDirectConfig() {
+        try {
+            const response = await fetch('/api/direct/config');
+            const data = await response.json();
+
+            if (data.configured) {
+                directConfig = data;
+                showDirectActive();
+            } else {
+                directConfig = null;
+                showDirectForm();
+            }
+        } catch (error) {
+            console.error('Failed to load direct config:', error);
+        }
+    }
+
+    function showDirectForm() {
+        document.getElementById('direct-config-form').classList.remove('hidden');
+        document.getElementById('direct-active').classList.add('hidden');
+        document.getElementById('direct-mode-status').textContent = 'Not configured';
+        document.getElementById('direct-mode-status').className =
+            'text-sm px-3 py-1 rounded-full bg-gray-700 text-gray-400';
+    }
+
+    function showDirectActive() {
+        document.getElementById('direct-config-form').classList.add('hidden');
+        document.getElementById('direct-active').classList.remove('hidden');
+        document.getElementById('direct-mode-status').textContent = 'Active';
+        document.getElementById('direct-mode-status').className =
+            'text-sm px-3 py-1 rounded-full bg-emerald-600 text-white';
+
+        // Update display
+        document.getElementById('direct-file-name').textContent = directConfig.file_name || directConfig.file_path.split('/').pop();
+        document.getElementById('direct-file-path-display').textContent = directConfig.file_path;
+        document.getElementById('direct-last-synced').textContent =
+            directConfig.last_synced ? new Date(directConfig.last_synced).toLocaleString() : 'Never';
+    }
+
+    // Configure button click
+    document.getElementById('direct-config-btn').addEventListener('click', async () => {
+        const filePath = document.getElementById('direct-file-path').value.trim();
+        if (!filePath) {
+            showToast('Please enter a file path', 'error');
+            return;
+        }
+
+        try {
+            const response = await fetch('/api/direct/config', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({file_path: filePath}),
+            });
+
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.detail || 'Failed to configure');
+            }
+
+            const data = await response.json();
+            showToast('File configured! Redirecting to Review...', 'success');
+
+            // Redirect to home (Review page)
+            setTimeout(() => {
+                window.location.href = '/';
+            }, 500);
+
+        } catch (error) {
+            showToast(error.message, 'error');
+        }
+    });
+
+    // Refresh button click
+    document.getElementById('direct-refresh-btn').addEventListener('click', async () => {
+        if (!confirm('This will reload the file from disk, discarding any unsaved changes. Continue?')) {
+            return;
+        }
+
+        try {
+            const response = await fetch('/api/direct/refresh', {method: 'POST'});
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.detail || 'Failed to refresh');
+            }
+
+            showToast('File refreshed from disk!', 'success');
+            await loadDirectConfig();
+
+        } catch (error) {
+            showToast(error.message, 'error');
+        }
+    });
+
+    // Apply button click
+    document.getElementById('direct-apply-btn').addEventListener('click', async () => {
+        if (!confirm('This will overwrite the file on disk with current translations. Continue?')) {
+            return;
+        }
+
+        try {
+            const response = await fetch('/api/direct/apply', {method: 'POST'});
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.detail || 'Failed to apply');
+            }
+
+            showToast('Changes applied to file!', 'success');
+            await loadDirectConfig();
+
+        } catch (error) {
+            showToast(error.message, 'error');
+        }
+    });
+
+    // Clear button click
+    document.getElementById('direct-clear-btn').addEventListener('click', async () => {
+        if (!confirm('Clear file configuration? You will need to configure a file again to use the app.')) {
+            return;
+        }
+
+        try {
+            await fetch('/api/direct/config', {method: 'DELETE'});
+            showToast('Configuration cleared', 'info');
+            directConfig = null;
+            showDirectForm();
+            document.getElementById('direct-file-path').value = '';
+
+        } catch (error) {
+            showToast(error.message, 'error');
+        }
+    });
+
+    // Load config on page load
+    loadDirectConfig();
+
+    // Upload section elements
+    const dropZone = document.getElementById('drop-zone');
+    const fileInput = document.getElementById('file-input');
+    const uploadForm = document.getElementById('upload-form');
+    const uploadBtn = document.getElementById('upload-btn');
+    const selectedFile = document.getElementById('selected-file');
+    const fileName = document.getElementById('file-name');
+    const fileSize = document.getElementById('file-size');
+    const clearFile = document.getElementById('clear-file');
+    const uploadText = document.getElementById('upload-text');
+    const uploadSpinner = document.getElementById('upload-spinner');
+
+    let currentFile = null;
+
+    // Click to select file
+    dropZone.addEventListener('click', () => fileInput.click());
+
+    // Drag and drop
+    dropZone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        dropZone.classList.add('border-emerald-500');
+    });
+
+    dropZone.addEventListener('dragleave', () => {
+        dropZone.classList.remove('border-emerald-500');
+    });
+
+    dropZone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dropZone.classList.remove('border-emerald-500');
+        const files = e.dataTransfer.files;
+        if (files.length > 0) {
+            handleFile(files[0]);
+        }
+    });
+
+    // File input change
+    fileInput.addEventListener('change', () => {
+        if (fileInput.files.length > 0) {
+            handleFile(fileInput.files[0]);
+        }
+    });
+
+    // Clear file
+    clearFile.addEventListener('click', () => {
+        currentFile = null;
+        fileInput.value = '';
+        selectedFile.classList.add('hidden');
+        dropZone.classList.remove('hidden');
+        uploadBtn.disabled = true;
+    });
+
+    function handleFile(file) {
+        if (!file.name.endsWith('.xcstrings')) {
+            showToast('Please select a .xcstrings file', 'error');
+            return;
+        }
+
+        currentFile = file;
+        fileName.textContent = file.name;
+        fileSize.textContent = (file.size / 1024).toFixed(1) + ' KB';
+        selectedFile.classList.remove('hidden');
+        dropZone.classList.add('hidden');
+        uploadBtn.disabled = false;
+    }
+
+    // Form submit
+    uploadForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        if (!currentFile) return;
+
+        uploadBtn.disabled = true;
+        uploadText.classList.add('hidden');
+        uploadSpinner.classList.remove('hidden');
+
+        const formData = new FormData();
+        formData.append('file', currentFile);
+
+        try {
+            const response = await fetch('/api/files/upload', {
+                method: 'POST',
+                body: formData,
+            });
+
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.detail || 'Upload failed');
+            }
+
+            const data = await response.json();
+            showToast('File uploaded successfully!', 'success');
+
+            // Redirect to review page for the uploaded file
+            window.location.href = `/review/${data.file_id}/de`;
+
+        } catch (error) {
+            showToast(error.message, 'error');
+        } finally {
+            uploadBtn.disabled = false;
+            uploadText.classList.remove('hidden');
+            uploadSpinner.classList.add('hidden');
+        }
+    });
+
+    // Delete file
+    async function deleteFile(fileId) {
+        if (!confirm('Are you sure you want to delete this file?')) return;
+
+        try {
+            const response = await fetch(`/api/files/${fileId}`, {
+                method: 'DELETE',
+            });
+
+            if (!response.ok) {
+                throw new Error('Failed to delete file');
+            }
+
+            showToast('File deleted', 'success');
+            window.location.reload();
+
+        } catch (error) {
+            showToast(error.message, 'error');
+        }
+    }
+
+    // Open review page for a file (fetches first available language)
+    async function openReview(fileId) {
+        try {
+            const response = await fetch(`/api/stats/${fileId}`);
+            if (!response.ok) throw new Error('Failed to load file stats');
+
+            const stats = await response.json();
+            const languages = Object.keys(stats.coverage || {}).sort();
+
+            if (languages.length > 0) {
+                window.location.href = `/review/${fileId}/${languages[0]}`;
+            } else {
+                // Default to German if no translations yet
+                window.location.href = `/review/${fileId}/de`;
+            }
+        } catch (error) {
+            showToast(error.message, 'error');
+        }
+    }
+</script>
+{% endblock %}

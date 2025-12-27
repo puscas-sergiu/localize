@@ -29,6 +29,15 @@ class UpdateTranslationRequest(BaseModel):
     state: str = "translated"
 
 
+class TranslateSingleRequest(BaseModel):
+    key: str
+    source: str
+
+
+class DirectFileConfigRequest(BaseModel):
+    file_path: str
+
+
 # File endpoints
 @router.post("/files/upload")
 async def upload_file(request: Request, file: UploadFile = File(...)):
@@ -145,6 +154,34 @@ async def get_untranslated(request: Request, file_id: str, language: str):
     untranslated = service.get_untranslated_keys(content, language)
 
     return {"language": language, "untranslated": untranslated}
+
+
+@router.get("/stats/{file_id}/untranslated-count")
+async def get_untranslated_count(request: Request, file_id: str):
+    """Get total count of untranslated strings across all languages."""
+    file_storage = request.app.state.file_storage
+
+    content = file_storage.get_content_string(file_id)
+    if not content:
+        raise HTTPException(404, "File not found")
+
+    service = TranslationService()
+    stats = service.get_file_stats(content)
+
+    # Calculate total untranslated across all languages
+    total_untranslated = 0
+    languages_with_missing = {}
+    for lang, coverage in stats.get("coverage", {}).items():
+        missing = coverage["total"] - coverage["translated"]
+        if missing > 0:
+            languages_with_missing[lang] = missing
+            total_untranslated += missing
+
+    return {
+        "file_id": file_id,
+        "total_untranslated": total_untranslated,
+        "languages_with_missing": languages_with_missing,
+    }
 
 
 # Translation endpoints
@@ -298,6 +335,93 @@ async def update_translation(
     return {"status": "updated", "key": key}
 
 
+@router.post("/review/{file_id}/{language}/translate-single")
+async def translate_single_string(
+    request: Request,
+    file_id: str,
+    language: str,
+    body: TranslateSingleRequest,
+):
+    """Translate a single string and save it."""
+    file_storage = request.app.state.file_storage
+
+    content = file_storage.get_content_string(file_id)
+    if not content:
+        raise HTTPException(404, "File not found")
+
+    # Import translator and run in thread pool
+    from ...translation.translator import HybridTranslator
+
+    translator = HybridTranslator()
+
+    result = await asyncio.to_thread(
+        translator.translate,
+        body.key,
+        body.source,
+        language,
+    )
+
+    if not result.success:
+        raise HTTPException(500, f"Translation failed: {result.error or 'Unknown error'}")
+
+    # Save the translation
+    service = TranslationService()
+    state = "translated" if result.quality_score.category == "green" else "needs_review"
+    updated_content = service.update_translation(
+        content,
+        language,
+        body.key,
+        result.translation,
+        state,
+    )
+
+    file_storage.update_content(file_id, updated_content.encode("utf-8"))
+
+    return {
+        "status": "translated",
+        "key": body.key,
+        "translation": result.translation,
+        "state": state,
+        "quality_score": result.quality_score.overall,
+        "provider": result.provider,
+    }
+
+
+@router.post("/review/{file_id}/{language}/translate-all-untranslated")
+async def translate_all_untranslated(
+    request: Request,
+    file_id: str,
+    language: str,
+):
+    """Start a job to translate all untranslated strings for a language."""
+    file_storage = request.app.state.file_storage
+    job_manager = request.app.state.job_manager
+
+    if not file_storage.exists(file_id):
+        raise HTTPException(404, "File not found")
+
+    # Create job
+    job = job_manager.create_job(
+        job_type="translate",
+        file_id=file_id,
+        languages=[language],
+    )
+
+    # Start background translation for single language
+    asyncio.create_task(
+        _run_translation_job(
+            file_storage,
+            job_manager,
+            job.job_id,
+            file_id,
+            [language],
+            80.0,  # Default quality threshold
+        )
+    )
+
+    return {"job_id": job.job_id}
+
+
 # Verification endpoints
 @router.post("/verify/{file_id}")
 async def start_verification(request: Request, file_id: str, body: VerifyRequest):
@@ -404,3 +528,84 @@ async def get_verification_status(request: Request, job_id: str):
         "result": job.result,
         "error": job.error,
     }
+
+
+# Direct file endpoints
+@router.get("/direct/config")
+async def get_direct_config(request: Request):
+    """Get current direct file configuration."""
+    direct_service = request.app.state.direct_file_service
+
+    config = direct_service.get_config()
+    if not config:
+        return {"configured": False}
+
+    file_info = direct_service.get_file_info()
+    return {
+        "configured": True,
+        "file_path": config.file_path,
+        "file_id": config.file_id,
+        "configured_at": config.configured_at,
+        "last_synced": config.last_synced,
+        **(file_info or {}),
+    }
+
+
+@router.post("/direct/config")
+async def set_direct_config(request: Request, body: DirectFileConfigRequest):
+    """Configure a direct file path."""
+    direct_service = request.app.state.direct_file_service
+
+    try:
+        config, stats = direct_service.configure(body.file_path)
+        return {
+            "file_id": config.file_id,
+            "file_path": config.file_path,
+            "stats": stats,
+        }
+    except FileNotFoundError:
+        raise HTTPException(404, f"File not found: {body.file_path}")
+    except PermissionError:
+        raise HTTPException(403, f"Permission denied: {body.file_path}")
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
+
+@router.delete("/direct/config")
+async def clear_direct_config(request: Request):
+    """Clear direct file configuration."""
+    direct_service = request.app.state.direct_file_service
+    direct_service.clear_config()
+    return {"status": "cleared"}
+
+
+@router.post("/direct/refresh")
+async def refresh_direct_file(request: Request):
+    """Refresh content from configured file path."""
+    direct_service = request.app.state.direct_file_service
+
+    config = direct_service.get_config()
+    if not config:
+        raise HTTPException(400, "No direct file configured")
+
+    success, result = direct_service.refresh()
+    if not success:
+        raise HTTPException(400, result)
+
+    return {"status": "refreshed", "stats": result}
+
+
+@router.post("/direct/apply")
+async def apply_direct_file(request: Request):
+    """Apply (save) current content to configured file path."""
+    direct_service = request.app.state.direct_file_service
+
+    config = direct_service.get_config()
+    if not config:
+        raise HTTPException(400, "No direct file configured")
+
+    success, message = direct_service.apply()
+    if not success:
+        raise HTTPException(500, message)
+
+    return {"status": "applied", "message": message}
