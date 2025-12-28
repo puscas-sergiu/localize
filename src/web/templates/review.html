@@ -54,36 +54,31 @@
                     <h1 class="text-xl font-bold text-white">Review <span id="lang-title">{{ language|upper }}</span> Translations</h1>
                     <p class="text-sm text-gray-400 mt-1">{{ metadata.original_name }}</p>
                 </div>
-                <!-- More Menu (Download, View Last Results) -->
-                <div class="relative">
-                    <button id="more-menu-btn" class="bg-gray-700 text-gray-300 px-3 py-2 rounded-lg font-medium hover:bg-gray-600 transition-colors flex items-center space-x-2">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"></path>
+                <!-- Header Actions: Search + Download -->
+                <div class="flex items-center space-x-3">
+                    <!-- Search Input -->
+                    <div class="relative">
+                        <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
                         </svg>
-                        <span>More</span>
-                    </button>
-                    <div id="more-menu-dropdown" class="hidden absolute right-0 mt-2 w-56 bg-gray-800 border border-gray-700 rounded-lg shadow-xl z-20">
-                        <div class="py-1">
-                            <a href="/api/files/{{ file_id }}/download" class="flex items-center px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 hover:text-white">
-                                <svg class="w-4 h-4 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
-                                </svg>
-                                Download .xcstrings
-                            </a>
-                            <button id="view-last-results-menu-btn" class="hidden w-full flex items-center px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 hover:text-white text-left">
-                                <svg class="w-4 h-4 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
-                                </svg>
-                                View Last LLM Results
-                            </button>
-                        </div>
+                        <input type="text"
+                               id="search-input"
+                               placeholder="Search..."
+                               class="bg-gray-700 border border-gray-600 rounded-lg pl-10 pr-4 py-2 text-white text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 w-48 sm:w-64"
+                               oninput="handleSearch(this.value)">
                     </div>
+                    <!-- Download Button -->
+                    <a href="/api/files/{{ file_id }}/download" class="bg-gray-700 text-gray-300 px-3 py-2 rounded-lg font-medium hover:bg-gray-600 transition-colors flex items-center space-x-2" title="Download">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+                        </svg>
+                        <span class="hidden sm:inline">Download</span>
+                    </a>
                 </div>
             </div>
 
-            <!-- Workflow Step Indicator -->
-            <div id="workflow-steps" class="flex items-center justify-center space-x-2">
+            <!-- Workflow Step Indicator (hidden on mobile) -->
+            <div id="workflow-steps" class="hidden md:flex items-center justify-center space-x-2">
                 <!-- Step 1: Setup -->
                 <div class="flex items-center">
                     <div id="step-setup" class="flex items-center space-x-2 px-3 py-1.5 rounded-full bg-emerald-600/20 border border-emerald-600/50">
@@ -153,15 +148,16 @@
                         role="tab"
                         aria-selected="true"
                         id="tab-untranslated"
-                        class="tab-btn px-5 py-3 text-sm font-medium border-b-2 transition-colors text-emerald-400 border-emerald-500 bg-emerald-900/10"
+                        class="tab-btn px-2 sm:px-5 py-3 text-sm font-medium border-b-2 transition-colors text-emerald-400 border-emerald-500 bg-emerald-900/10"
                         data-tab="untranslated"
                     >
-                        <span class="flex items-center space-x-2">
+                        <span class="flex items-center space-x-1 sm:space-x-2">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
                             </svg>
-                            <span>Untranslated</span>
-                            <span id="badge-untranslated" class="bg-emerald-600 text-white text-xs px-2 py-0.5 rounded-full font-bold">0</span>
+                            <span class="sm:hidden">New</span>
+                            <span class="hidden sm:inline">Untranslated</span>
+                            <span id="badge-untranslated" class="bg-emerald-600 text-white text-xs px-1.5 sm:px-2 py-0.5 rounded-full font-bold">0</span>
                         </span>
                     </button>
 
@@ -169,15 +165,16 @@
                         role="tab"
                         aria-selected="false"
                         id="tab-needs-review"
-                        class="tab-btn px-5 py-3 text-sm font-medium border-b-2 transition-colors text-gray-400 border-transparent hover:text-gray-300"
+                        class="tab-btn px-2 sm:px-5 py-3 text-sm font-medium border-b-2 transition-colors text-gray-400 border-transparent hover:text-gray-300"
                         data-tab="needs_review"
                     >
-                        <span class="flex items-center space-x-2">
+                        <span class="flex items-center space-x-1 sm:space-x-2">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
                             </svg>
-                            <span>Needs Review</span>
-                            <span id="badge-needs-review" class="hidden bg-yellow-600 text-white text-xs px-2 py-0.5 rounded-full font-bold">0</span>
+                            <span class="sm:hidden">Review</span>
+                            <span class="hidden sm:inline">Needs Review</span>
+                            <span id="badge-needs-review" class="hidden bg-yellow-600 text-white text-xs px-1.5 sm:px-2 py-0.5 rounded-full font-bold">0</span>
                         </span>
                     </button>
 
@@ -185,63 +182,54 @@
                         role="tab"
                         aria-selected="false"
                         id="tab-all"
-                        class="tab-btn px-5 py-3 text-sm font-medium border-b-2 transition-colors text-gray-400 border-transparent hover:text-gray-300"
+                        class="tab-btn px-2 sm:px-5 py-3 text-sm font-medium border-b-2 transition-colors text-gray-400 border-transparent hover:text-gray-300"
                         data-tab="all"
                     >
-                        <span class="flex items-center space-x-2">
+                        <span class="flex items-center space-x-1 sm:space-x-2">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"></path>
                             </svg>
-                            <span>All Strings</span>
+                            <span class="sm:hidden">All</span>
+                            <span class="hidden sm:inline">All Strings</span>
                             <span id="badge-all" class="text-gray-500 text-xs">(0)</span>
                         </span>
                     </button>
                 </nav>
 
                 <!-- Tab-Contextual Actions -->
-                <div id="tab-actions" class="flex items-center space-x-3 py-2">
+                <div id="tab-actions" class="flex items-center space-x-1 sm:space-x-3 py-2">
                     <!-- Actions will be updated based on active tab -->
                     <button
                         id="translate-all-btn"
-                        class="bg-emerald-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-emerald-700 transition-colors flex items-center space-x-2"
+                        class="bg-emerald-600 text-white px-2 sm:px-4 py-2 rounded-lg font-medium hover:bg-emerald-700 transition-colors flex items-center space-x-2"
+                        title="Translate All"
                     >
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129"></path>
                         </svg>
-                        <span>Translate All</span>
+                        <span class="hidden sm:inline">Translate All</span>
                     </button>
                     <button
                         id="verify-btn"
-                        class="hidden bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center space-x-2"
+                        class="hidden bg-blue-600 text-white px-2 sm:px-4 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center space-x-2"
+                        title="Run LLM Check"
                     >
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path>
                         </svg>
-                        <span>Run LLM Check</span>
+                        <span class="hidden sm:inline">Run LLM Check</span>
                     </button>
                     <button
                         id="view-last-results-btn"
-                        class="hidden bg-purple-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-purple-700 transition-colors flex items-center space-x-2"
+                        class="hidden bg-purple-600 text-white px-2 sm:px-4 py-2 rounded-lg font-medium hover:bg-purple-700 transition-colors flex items-center space-x-2"
+                        title="View Results"
                     >
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
                         </svg>
-                        <span>View Results</span>
+                        <span class="hidden sm:inline">View Results</span>
                     </button>
-                    <!-- Search (shown on All tab) -->
-                    <div id="search-container" class="hidden">
-                        <div class="relative">
-                            <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
-                            </svg>
-                            <input type="text"
-                                   id="search-input"
-                                   placeholder="Search..."
-                                   class="bg-gray-700 border border-gray-600 rounded-lg pl-10 pr-4 py-2 text-white text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 w-64"
-                                   oninput="handleSearch(this.value)">
-                        </div>
-                    </div>
                     <!-- State filter dropdown (shown on All tab) -->
                     <select id="state-filter-select" class="hidden bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white text-sm focus:ring-2 focus:ring-emerald-500">
                         <option value="">All states</option>
@@ -373,21 +361,36 @@
                     </svg>
                     <h3 class="text-xl font-semibold text-white mb-2">LLM Review</h3>
                     <p class="text-gray-400 text-center max-w-md mb-6">
-                        This will analyze all unreviewed translations using AI to identify potential issues and suggest improvements. Strings are processed in batches of 100.
+                        This will analyze translations using AI to identify potential issues and suggest improvements. Strings are processed in batches of 100.
                     </p>
 
-                    <!-- Auto-continue toggle -->
-                    <label class="flex items-center space-x-3 mb-6 cursor-pointer group">
-                        <div class="relative">
-                            <input type="checkbox" id="auto-continue-toggle" class="sr-only peer" checked>
-                            <div class="w-11 h-6 bg-gray-600 rounded-full peer peer-checked:bg-blue-600 transition-colors"></div>
-                            <div class="absolute left-0.5 top-0.5 w-5 h-5 bg-white rounded-full transition-transform peer-checked:translate-x-5"></div>
-                        </div>
-                        <div>
-                            <span class="text-white font-medium">Process all batches automatically</span>
-                            <p class="text-xs text-gray-500">Review issues after all batches complete</p>
-                        </div>
-                    </label>
+                    <div class="space-y-4 mb-6">
+                        <!-- Auto-continue toggle -->
+                        <label class="flex items-center space-x-3 cursor-pointer group">
+                            <div class="relative">
+                                <input type="checkbox" id="auto-continue-toggle" class="sr-only peer" checked>
+                                <div class="w-11 h-6 bg-gray-600 rounded-full peer peer-checked:bg-blue-600 transition-colors"></div>
+                                <div class="absolute left-0.5 top-0.5 w-5 h-5 bg-white rounded-full transition-transform peer-checked:translate-x-5"></div>
+                            </div>
+                            <div>
+                                <span class="text-white font-medium">Process all batches automatically</span>
+                                <p class="text-xs text-gray-500">Review issues after all batches complete</p>
+                            </div>
+                        </label>
+
+                        <!-- Re-check reviewed strings toggle -->
+                        <label class="flex items-center space-x-3 cursor-pointer group">
+                            <div class="relative">
+                                <input type="checkbox" id="include-reviewed-toggle" class="sr-only peer">
+                                <div class="w-11 h-6 bg-gray-600 rounded-full peer peer-checked:bg-blue-600 transition-colors"></div>
+                                <div class="absolute left-0.5 top-0.5 w-5 h-5 bg-white rounded-full transition-transform peer-checked:translate-x-5"></div>
+                            </div>
+                            <div>
+                                <span class="text-white font-medium">Re-check all strings</span>
+                                <p class="text-xs text-gray-500">Include already reviewed strings</p>
+                            </div>
+                        </label>
+                    </div>
 
                     <button id="start-llm-review" class="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-lg font-medium transition-colors flex items-center space-x-2">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -408,9 +411,21 @@
                     <p id="processing-status" class="text-gray-400">Processing batch...</p>
                 </div>
 
-                <!-- Issues list -->
-                <div id="llm-issues-list" class="hidden space-y-4">
-                    <!-- Issue cards will be inserted here -->
+                <!-- Issues table (compact view) -->
+                <div id="llm-issues-list" class="hidden">
+                    <table class="w-full">
+                        <thead class="bg-gray-750 sticky top-0 z-10">
+                            <tr>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider w-1/4">Key</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Change</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider w-40">Issue</th>
+                                <th class="px-4 py-3 text-right text-xs font-medium text-gray-400 uppercase tracking-wider w-28">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="llm-issues-tbody" class="divide-y divide-gray-700">
+                            <!-- Issue rows will be inserted here -->
+                        </tbody>
+                    </table>
                 </div>
 
                 <!-- Empty state (no issues found) -->
@@ -1440,12 +1455,68 @@
         cumulativePassed: 0,
         cumulativeAttention: 0,
         cumulativeFlagged: 0,
+        cumulativeAutoReviewed: 0,  // Count of strings auto-marked as reviewed
         currentIssues: [],
         allIssues: [],  // Accumulate all issues across batches in auto mode
         isProcessing: false,
         autoMode: true,  // Auto-continue through batches
+        includeReviewed: false,  // Re-check already reviewed strings
         lastResults: null  // Store last results for re-viewing
     };
+
+    // LocalStorage key for persisting LLM results
+    function getLLMStorageKey() {
+        return `llm_review_${fileId}_${language}`;
+    }
+
+    // Save LLM results to localStorage
+    function saveLLMResults() {
+        const results = {
+            issues: llmReviewState.allIssues,
+            passed: llmReviewState.cumulativePassed,
+            attention: llmReviewState.cumulativeAttention,
+            flagged: llmReviewState.cumulativeFlagged,
+            autoReviewed: llmReviewState.cumulativeAutoReviewed,
+            total: llmReviewState.totalUnreviewed,
+            timestamp: Date.now()
+        };
+        try {
+            localStorage.setItem(getLLMStorageKey(), JSON.stringify(results));
+        } catch (e) {
+            console.warn('Failed to save LLM results to localStorage:', e);
+        }
+    }
+
+    // Load LLM results from localStorage
+    function loadLLMResults() {
+        try {
+            const stored = localStorage.getItem(getLLMStorageKey());
+            if (stored) {
+                return JSON.parse(stored);
+            }
+        } catch (e) {
+            console.warn('Failed to load LLM results from localStorage:', e);
+        }
+        return null;
+    }
+
+    // Clear LLM results from localStorage
+    function clearLLMResults() {
+        try {
+            localStorage.removeItem(getLLMStorageKey());
+        } catch (e) {
+            console.warn('Failed to clear LLM results:', e);
+        }
+    }
+
+    // Get pending issues count from localStorage
+    function getPendingIssuesCount() {
+        const results = loadLLMResults();
+        if (results && results.issues) {
+            return results.issues.filter(i => i.suggested_fix).length;
+        }
+        return 0;
+    }
 
     // DOM element references
     const llmOverlay = document.getElementById('llm-review-overlay');
@@ -1465,10 +1536,12 @@
             cumulativePassed: 0,
             cumulativeAttention: 0,
             cumulativeFlagged: 0,
+            cumulativeAutoReviewed: 0,
             currentIssues: [],
             allIssues: [],
             isProcessing: false,
-            autoMode: true
+            autoMode: true,
+            includeReviewed: false
         };
 
         // Reset UI elements
@@ -1480,6 +1553,12 @@
         document.getElementById('stats-passed').textContent = '0';
         document.getElementById('stats-attention').textContent = '0';
         document.getElementById('stats-flagged').textContent = '0';
+
+        // Reset toggles
+        document.getElementById('include-reviewed-toggle').checked = false;
+
+        // Clear issues table
+        document.getElementById('llm-issues-tbody').innerHTML = '';
 
         // Show start section, hide others
         document.getElementById('llm-start-section').classList.remove('hidden');
@@ -1507,23 +1586,27 @@
         if (!force && pendingIssues > 0) {
             const confirmed = confirm(
                 `You have ${pendingIssues} unresolved issue${pendingIssues > 1 ? 's' : ''} with suggestions.\n\n` +
-                `Close anyway? You can re-open the results using "View Last Results" button.`
+                `Close anyway? You can re-open the results using "View Results" button.`
             );
             if (!confirmed) return;
         }
 
-        // Save results so they can be re-viewed
+        // Save results to localStorage and state
         if (llmReviewState.allIssues.length > 0 || llmReviewState.currentIssues.length > 0) {
             llmReviewState.lastResults = {
                 issues: llmReviewState.autoMode ? [...llmReviewState.allIssues] : [...llmReviewState.currentIssues],
                 passed: llmReviewState.cumulativePassed,
                 attention: llmReviewState.cumulativeAttention,
                 flagged: llmReviewState.cumulativeFlagged,
+                autoReviewed: llmReviewState.cumulativeAutoReviewed,
                 total: llmReviewState.totalUnreviewed
             };
-            // Show the "View Last Results" button
-            document.getElementById('view-last-results-btn')?.classList.remove('hidden');
+            // Persist to localStorage
+            saveLLMResults();
         }
+
+        // Update button badge with pending count
+        updateLLMButtonBadge();
 
         llmOverlay.classList.add('hidden');
         // Refresh the main table and sidebar
@@ -1535,33 +1618,43 @@
     document.getElementById('close-llm-overlay').addEventListener('click', () => closeLLMReviewOverlay(false));
     document.getElementById('cancel-llm-review').addEventListener('click', () => closeLLMReviewOverlay(false));
 
-    // View Last Results button
-    document.getElementById('view-last-results-btn').addEventListener('click', () => {
-        if (!llmReviewState.lastResults) return;
+    // View Last Results button - loads from localStorage
+    function viewStoredResults() {
+        // First try localStorage, then fall back to in-memory state
+        const results = loadLLMResults() || llmReviewState.lastResults;
+        if (!results) return;
 
-        const results = llmReviewState.lastResults;
-
-        // Restore state from last results
-        llmReviewState.cumulativePassed = results.passed;
-        llmReviewState.cumulativeAttention = results.attention;
-        llmReviewState.cumulativeFlagged = results.flagged;
-        llmReviewState.totalUnreviewed = results.total;
-        llmReviewState.currentIssues = results.issues.filter(i => i.suggested_fix);
-        llmReviewState.allIssues = results.issues;
+        // Restore state from saved results
+        llmReviewState.cumulativePassed = results.passed || 0;
+        llmReviewState.cumulativeAttention = results.attention || 0;
+        llmReviewState.cumulativeFlagged = results.flagged || 0;
+        llmReviewState.cumulativeAutoReviewed = results.autoReviewed || 0;
+        llmReviewState.totalUnreviewed = results.total || 0;
+        llmReviewState.currentIssues = (results.issues || []).filter(i => i.suggested_fix);
+        llmReviewState.allIssues = results.issues || [];
         llmReviewState.autoMode = true;
-        llmReviewState.processedBatches = Math.ceil(results.total / 100);
+        llmReviewState.processedBatches = Math.ceil((results.total || 0) / 100);
         llmReviewState.totalBatches = llmReviewState.processedBatches;
-        llmReviewState.nextOffset = results.total;
+        llmReviewState.nextOffset = results.total || 0;
+
+        // Clear previous table rows
+        document.getElementById('llm-issues-tbody').innerHTML = '';
 
         // Update UI elements
         document.getElementById('batch-indicator').textContent = `Batch ${llmReviewState.processedBatches} of ${llmReviewState.totalBatches}`;
         document.getElementById('reviewed-indicator').textContent = `${results.total} of ${results.total} strings reviewed`;
         document.getElementById('overall-percent').textContent = '100%';
         document.getElementById('overall-progress-bar').style.width = '100%';
-        document.getElementById('current-batch-status').textContent = `Viewing saved results. ${results.issues.length} issues found.`;
-        document.getElementById('stats-passed').textContent = results.passed;
-        document.getElementById('stats-attention').textContent = results.attention;
-        document.getElementById('stats-flagged').textContent = results.flagged;
+
+        const autoReviewedText = llmReviewState.cumulativeAutoReviewed > 0
+            ? ` ${llmReviewState.cumulativeAutoReviewed} auto-reviewed.`
+            : '';
+        document.getElementById('current-batch-status').textContent =
+            `Viewing saved results. ${llmReviewState.allIssues.length} issues found.${autoReviewedText}`;
+
+        document.getElementById('stats-passed').textContent = results.passed || 0;
+        document.getElementById('stats-attention').textContent = results.attention || 0;
+        document.getElementById('stats-flagged').textContent = results.flagged || 0;
 
         // Hide start section, show results
         document.getElementById('llm-start-section').classList.add('hidden');
@@ -1569,13 +1662,15 @@
         document.getElementById('llm-no-issues').classList.add('hidden');
 
         // Render issues
-        if (results.issues.length > 0) {
-            renderLLMIssueCards(results.issues);
+        if (llmReviewState.allIssues.length > 0) {
+            renderLLMIssueCards(llmReviewState.allIssues);
             document.getElementById('llm-issues-list').classList.remove('hidden');
 
             if (llmReviewState.currentIssues.length > 0) {
                 document.getElementById('apply-all-section').classList.remove('hidden');
                 document.getElementById('apply-all-badge').textContent = llmReviewState.currentIssues.length;
+            } else {
+                document.getElementById('apply-all-section').classList.add('hidden');
             }
         } else {
             document.getElementById('llm-issues-list').classList.add('hidden');
@@ -1592,13 +1687,21 @@
 
         // Show overlay
         llmOverlay.classList.remove('hidden');
-    });
+    }
+
+    document.getElementById('view-last-results-btn').addEventListener('click', viewStoredResults);
 
     // Start verification
     document.getElementById('start-llm-review').addEventListener('click', () => {
-        // Read auto-continue toggle state
+        // Read toggle states
         llmReviewState.autoMode = document.getElementById('auto-continue-toggle').checked;
+        llmReviewState.includeReviewed = document.getElementById('include-reviewed-toggle').checked;
         llmReviewState.allIssues = []; // Reset accumulated issues
+        llmReviewState.cumulativeAutoReviewed = 0; // Reset auto-reviewed count
+
+        // Clear previous localStorage results since we're starting a new check
+        clearLLMResults();
+
         startLLMVerification(0);
     });
 
@@ -1613,11 +1716,19 @@
     async function startLLMVerification(offset = 0) {
         llmReviewState.isProcessing = true;
 
-        // Show processing state
+        // Show processing state - but keep issues list visible if we have issues
         document.getElementById('llm-start-section').classList.add('hidden');
-        document.getElementById('llm-processing-section').classList.remove('hidden');
-        document.getElementById('llm-issues-list').classList.add('hidden');
         document.getElementById('llm-no-issues').classList.add('hidden');
+
+        // Only show the full processing section on first batch
+        if (offset === 0) {
+            document.getElementById('llm-processing-section').classList.remove('hidden');
+            document.getElementById('llm-issues-list').classList.add('hidden');
+        } else {
+            // On subsequent batches, show processing inline but keep table visible
+            document.getElementById('llm-processing-section').classList.add('hidden');
+            document.getElementById('llm-issues-list').classList.remove('hidden');
+        }
 
         // Show spinner in step indicator
         document.getElementById('step2-spinner').classList.remove('hidden');
@@ -1627,11 +1738,10 @@
         document.getElementById('continue-llm-review').classList.add('hidden');
         document.getElementById('finish-llm-review').classList.add('hidden');
 
-        document.getElementById('current-batch-status').textContent = 'Starting verification...';
+        document.getElementById('current-batch-status').textContent = offset === 0
+            ? 'Starting verification...'
+            : `Processing batch ${llmReviewState.processedBatches + 1}...`;
         document.getElementById('processing-status').textContent = 'Processing batch...';
-
-        // Clear issues list for new batch
-        document.getElementById('llm-issues-list').innerHTML = '';
 
         try {
             const response = await fetch(`/api/verify/${fileId}`, {
@@ -1640,6 +1750,7 @@
                 body: JSON.stringify({
                     language: language,
                     offset: offset,
+                    include_reviewed: llmReviewState.includeReviewed,
                 }),
             });
 
@@ -1697,6 +1808,7 @@
         // Accumulate counts
         llmReviewState.cumulativePassed += result.passed || 0;
         llmReviewState.cumulativeAttention += result.needs_attention || 0;
+        llmReviewState.cumulativeAutoReviewed += result.auto_reviewed_count || 0;
 
         // Store issues - accumulate in auto mode
         const newIssues = result.issues || [];
@@ -1704,7 +1816,9 @@
             // Accumulate all issues across batches
             llmReviewState.allIssues = [...llmReviewState.allIssues, ...newIssues];
         }
-        llmReviewState.currentIssues = newIssues.filter(issue => issue.suggested_fix);
+        llmReviewState.currentIssues = llmReviewState.autoMode
+            ? llmReviewState.allIssues.filter(issue => issue.suggested_fix)
+            : newIssues.filter(issue => issue.suggested_fix);
 
         // Update progress indicators
         updateLLMProgressUI();
@@ -1714,9 +1828,30 @@
         document.getElementById('stats-attention').textContent = llmReviewState.cumulativeAttention;
         document.getElementById('stats-flagged').textContent = llmReviewState.cumulativeFlagged;
 
+        // STREAM RESULTS IMMEDIATELY: Show issues table as soon as first batch completes
+        if (newIssues.length > 0) {
+            // Append new issues to the table (don't replace)
+            appendLLMIssueRows(newIssues);
+            document.getElementById('llm-processing-section').classList.add('hidden');
+            document.getElementById('llm-issues-list').classList.remove('hidden');
+            document.getElementById('llm-no-issues').classList.add('hidden');
+
+            // Show Apply All if there are suggestions
+            const issuesWithFixes = llmReviewState.currentIssues;
+            if (issuesWithFixes.length > 0) {
+                document.getElementById('apply-all-section').classList.remove('hidden');
+                document.getElementById('apply-all-badge').textContent = issuesWithFixes.length;
+            }
+        }
+
         // AUTO MODE: Continue to next batch automatically
         if (llmReviewState.autoMode && result.has_more) {
-            document.getElementById('current-batch-status').textContent = `Processing batch ${llmReviewState.processedBatches + 1} of ${llmReviewState.totalBatches}...`;
+            const autoReviewedText = llmReviewState.cumulativeAutoReviewed > 0
+                ? ` · ${llmReviewState.cumulativeAutoReviewed} auto-reviewed`
+                : '';
+            document.getElementById('current-batch-status').textContent =
+                `Processing batch ${llmReviewState.processedBatches + 1} of ${llmReviewState.totalBatches}...${autoReviewedText}`;
+
             // Small delay to allow UI to update before starting next batch
             setTimeout(() => {
                 startLLMVerification(llmReviewState.nextOffset);
@@ -1724,34 +1859,24 @@
             return;
         }
 
-        // MANUAL MODE or ALL BATCHES COMPLETE: Show results
+        // MANUAL MODE or ALL BATCHES COMPLETE: Show final state
         llmReviewState.isProcessing = false;
 
-        // Hide processing, show results
+        // Hide processing spinner
         document.getElementById('llm-processing-section').classList.add('hidden');
         document.getElementById('step2-spinner').classList.add('hidden');
         document.getElementById('step2-number').classList.remove('hidden');
 
+        // Save results to localStorage
+        saveLLMResults();
+
         // In auto mode, use all accumulated issues; in manual mode, use current batch issues
         const issuesToShow = llmReviewState.autoMode ? llmReviewState.allIssues : newIssues;
-        const issuesWithFixes = issuesToShow.filter(issue => issue.suggested_fix);
-
-        // Update currentIssues for Apply All functionality
-        if (llmReviewState.autoMode) {
-            llmReviewState.currentIssues = issuesWithFixes;
-        }
 
         // Show issues or no-issues state
         if (issuesToShow.length > 0) {
-            renderLLMIssueCards(issuesToShow);
             document.getElementById('llm-issues-list').classList.remove('hidden');
             document.getElementById('llm-no-issues').classList.add('hidden');
-
-            // Show Apply All if there are suggestions
-            if (issuesWithFixes.length > 0) {
-                document.getElementById('apply-all-section').classList.remove('hidden');
-                document.getElementById('apply-all-badge').textContent = issuesWithFixes.length;
-            }
         } else {
             document.getElementById('llm-issues-list').classList.add('hidden');
             document.getElementById('llm-no-issues').classList.remove('hidden');
@@ -1768,10 +1893,14 @@
             // All batches complete
             document.getElementById('continue-llm-review').classList.add('hidden');
             document.getElementById('finish-llm-review').classList.remove('hidden');
+            const autoReviewedText = llmReviewState.cumulativeAutoReviewed > 0
+                ? ` ${llmReviewState.cumulativeAutoReviewed} auto-marked as reviewed.`
+                : '';
             if (llmReviewState.autoMode) {
-                document.getElementById('current-batch-status').textContent = `All ${llmReviewState.totalUnreviewed} strings reviewed! Found ${llmReviewState.allIssues.length} issues.`;
+                document.getElementById('current-batch-status').textContent =
+                    `All ${llmReviewState.totalUnreviewed} strings reviewed! Found ${llmReviewState.allIssues.length} issues.${autoReviewedText}`;
             } else {
-                document.getElementById('current-batch-status').textContent = 'All strings have been reviewed!';
+                document.getElementById('current-batch-status').textContent = `All strings have been reviewed!${autoReviewedText}`;
             }
         }
 
@@ -1790,95 +1919,172 @@
         document.getElementById('overall-progress-bar').style.width = `${percentage}%`;
     }
 
-    function renderLLMIssueCards(issues) {
-        const container = document.getElementById('llm-issues-list');
-        let html = '';
+    // Helper to truncate text with ellipsis
+    function truncateText(text, maxLength = 40) {
+        if (!text || text.length <= maxLength) return text || '';
+        return text.substring(0, maxLength) + '...';
+    }
+
+    // Helper to get short issue label
+    function getShortIssueLabel(issue) {
+        // Extract key words from issue description
+        const lowerIssue = issue.toLowerCase();
+        if (lowerIssue.includes('terminolog')) return 'Terminology';
+        if (lowerIssue.includes('inconsistent')) return 'Inconsistent';
+        if (lowerIssue.includes('style') || lowerIssue.includes('stylistic')) return 'Style';
+        if (lowerIssue.includes('grammar')) return 'Grammar';
+        if (lowerIssue.includes('spelling')) return 'Spelling';
+        if (lowerIssue.includes('truncat')) return 'Truncated';
+        if (lowerIssue.includes('missing')) return 'Missing';
+        if (lowerIssue.includes('format')) return 'Format';
+        if (lowerIssue.includes('placeholder')) return 'Placeholder';
+        // Return first word or truncated
+        return truncateText(issue, 15);
+    }
+
+    // Render compact table rows (append mode for streaming)
+    function appendLLMIssueRows(issues) {
+        const tbody = document.getElementById('llm-issues-tbody');
 
         for (const issue of issues) {
-            html += `
-                <div class="llm-issue-card bg-gray-750 rounded-lg p-5 border border-gray-600 transition-all duration-300" data-key="${escapeHtml(issue.key)}">
-                    <!-- Key -->
-                    <div class="mb-3">
-                        <span class="text-xs text-gray-500 uppercase tracking-wider">Key</span>
-                        <code class="block text-sm text-gray-300 mt-1 break-all">${escapeHtml(issue.key)}</code>
-                    </div>
+            const row = document.createElement('tr');
+            row.className = 'llm-issue-row hover:bg-gray-700 cursor-pointer transition-colors';
+            row.dataset.key = issue.key;
+            row.dataset.expanded = 'false';
 
-                    <!-- Source and Current Translation -->
-                    <div class="grid md:grid-cols-2 gap-4 mb-4">
+            // Format the change column: "current" → "suggested"
+            const currentText = truncateText(issue.translation, 25);
+            const suggestedText = issue.suggested_fix ? truncateText(issue.suggested_fix, 25) : '-';
+            const changeDisplay = issue.suggested_fix
+                ? `<span class="text-gray-400">"${escapeHtml(currentText)}"</span> <span class="text-gray-500">→</span> <span class="text-emerald-400">"${escapeHtml(suggestedText)}"</span>`
+                : `<span class="text-gray-400">"${escapeHtml(currentText)}"</span>`;
+
+            // Get short issue labels
+            const issueLabels = (issue.issues || []).map(i =>
+                `<span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs bg-yellow-900/30 text-yellow-400 border border-yellow-700/50">${escapeHtml(getShortIssueLabel(i))}</span>`
+            ).join(' ');
+
+            row.innerHTML = `
+                <td class="px-4 py-3">
+                    <code class="text-sm text-gray-300 break-all" title="${escapeHtml(issue.key)}">${escapeHtml(truncateText(issue.key, 30))}</code>
+                </td>
+                <td class="px-4 py-3 text-sm">
+                    ${changeDisplay}
+                </td>
+                <td class="px-4 py-3">
+                    <div class="flex flex-wrap gap-1">${issueLabels}</div>
+                </td>
+                <td class="px-4 py-3 text-right">
+                    <div class="flex items-center justify-end space-x-1">
+                        ${issue.suggested_fix ? `
+                        <button
+                            class="llm-apply-btn p-1.5 rounded hover:bg-emerald-600/30 text-emerald-400 hover:text-emerald-300 transition-colors"
+                            data-key="${escapeHtml(issue.key)}"
+                            data-suggestion="${escapeHtml(issue.suggested_fix)}"
+                            title="Apply suggestion"
+                        >
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                            </svg>
+                        </button>
+                        ` : ''}
+                        <button
+                            class="llm-dismiss-btn p-1.5 rounded hover:bg-gray-600/50 text-gray-400 hover:text-gray-300 transition-colors"
+                            data-key="${escapeHtml(issue.key)}"
+                            data-translation="${escapeHtml(issue.translation || '')}"
+                            title="Dismiss (mark as reviewed)"
+                        >
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                            </svg>
+                        </button>
+                        <button
+                            class="llm-flag-btn p-1.5 rounded hover:bg-amber-600/30 text-amber-400 hover:text-amber-300 transition-colors"
+                            data-key="${escapeHtml(issue.key)}"
+                            data-translation="${escapeHtml(issue.translation || '')}"
+                            title="Flag for review"
+                        >
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9"></path>
+                            </svg>
+                        </button>
+                    </div>
+                </td>
+            `;
+
+            // Add expand/collapse row
+            const expandRow = document.createElement('tr');
+            expandRow.className = 'llm-issue-expand hidden bg-gray-750';
+            expandRow.dataset.expandFor = issue.key;
+            expandRow.innerHTML = `
+                <td colspan="4" class="px-4 py-3 border-t border-gray-600">
+                    <div class="grid md:grid-cols-2 gap-4 text-sm">
                         <div>
                             <span class="text-xs text-gray-500 uppercase tracking-wider">Source (EN)</span>
-                            <p class="text-base text-gray-200 mt-1">${escapeHtml(issue.source || '')}</p>
+                            <p class="text-gray-200 mt-1">${escapeHtml(issue.source || '')}</p>
                         </div>
                         <div>
                             <span class="text-xs text-gray-500 uppercase tracking-wider">Current Translation</span>
-                            <p class="text-base text-white mt-1">${escapeHtml(issue.translation || '')}</p>
+                            <p class="text-white mt-1">${escapeHtml(issue.translation || '')}</p>
                         </div>
                     </div>
-
-                    <!-- Issues Found -->
-                    <div class="mb-4">
-                        <span class="text-xs text-gray-500 uppercase tracking-wider">Issues Found</span>
-                        <div class="flex flex-wrap gap-2 mt-2">
-                            ${issue.issues.map(i => `
-                                <span class="inline-flex items-center px-2.5 py-1 rounded text-sm bg-yellow-900/30 text-yellow-400 border border-yellow-700/50">
-                                    <svg class="w-3.5 h-3.5 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
-                                    </svg>
+                    ${issue.suggested_fix ? `
+                    <div class="mt-3 p-2 bg-emerald-900/20 rounded border border-emerald-700/30">
+                        <span class="text-xs text-emerald-500 uppercase tracking-wider">Suggested Fix</span>
+                        <p class="text-emerald-300 mt-1">${escapeHtml(issue.suggested_fix)}</p>
+                    </div>
+                    ` : ''}
+                    <div class="mt-3">
+                        <span class="text-xs text-gray-500 uppercase tracking-wider">Issues</span>
+                        <div class="flex flex-wrap gap-2 mt-1">
+                            ${(issue.issues || []).map(i => `
+                                <span class="inline-flex items-center px-2 py-1 rounded text-xs bg-yellow-900/30 text-yellow-400 border border-yellow-700/50">
                                     ${escapeHtml(i)}
                                 </span>
                             `).join('')}
                         </div>
                     </div>
-
-                    ${issue.suggested_fix ? `
-                    <!-- Suggested Fix -->
-                    <div class="mb-4 p-3 bg-emerald-900/20 rounded-lg border border-emerald-700/30">
-                        <span class="text-xs text-emerald-500 uppercase tracking-wider">Suggested Fix</span>
-                        <p class="text-base text-emerald-300 mt-1">${escapeHtml(issue.suggested_fix)}</p>
-                    </div>
-                    ` : ''}
-
-                    <!-- Action Buttons -->
-                    <div class="flex items-center justify-end space-x-3 pt-3 border-t border-gray-600">
-                        ${issue.suggested_fix ? `
-                        <button
-                            class="llm-apply-btn bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center space-x-2"
-                            data-key="${escapeHtml(issue.key)}"
-                            data-suggestion="${escapeHtml(issue.suggested_fix)}"
-                        >
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-                            </svg>
-                            <span>Apply</span>
-                        </button>
-                        ` : ''}
-                        <button
-                            class="llm-dismiss-btn bg-gray-600 hover:bg-gray-500 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center space-x-2"
-                            data-key="${escapeHtml(issue.key)}"
-                            data-translation="${escapeHtml(issue.translation || '')}"
-                        >
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                            </svg>
-                            <span>Dismiss</span>
-                        </button>
-                        <button
-                            class="llm-flag-btn bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center space-x-2"
-                            data-key="${escapeHtml(issue.key)}"
-                            data-translation="${escapeHtml(issue.translation || '')}"
-                        >
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9"></path>
-                            </svg>
-                            <span>Flag</span>
-                        </button>
-                    </div>
-                </div>
+                </td>
             `;
+
+            tbody.appendChild(row);
+            tbody.appendChild(expandRow);
         }
 
-        container.innerHTML = html;
         setupLLMIssueButtons();
+        setupRowExpansion();
+    }
+
+    // Setup row expansion click handlers
+    function setupRowExpansion() {
+        document.querySelectorAll('.llm-issue-row').forEach(row => {
+            // Remove existing listener to avoid duplicates
+            row.removeEventListener('click', handleRowClick);
+            row.addEventListener('click', handleRowClick);
+        });
+    }
+
+    function handleRowClick(e) {
+        // Don't expand if clicking a button
+        if (e.target.closest('button')) return;
+
+        const row = e.currentTarget;
+        const key = row.dataset.key;
+        const expandRow = document.querySelector(`.llm-issue-expand[data-expand-for="${CSS.escape(key)}"]`);
+
+        if (expandRow) {
+            const isExpanded = row.dataset.expanded === 'true';
+            row.dataset.expanded = isExpanded ? 'false' : 'true';
+            expandRow.classList.toggle('hidden', isExpanded);
+            row.classList.toggle('bg-gray-700', !isExpanded);
+        }
+    }
+
+    // Legacy function for compatibility with view last results
+    function renderLLMIssueCards(issues) {
+        // Clear existing rows and render all
+        document.getElementById('llm-issues-tbody').innerHTML = '';
+        appendLLMIssueRows(issues);
     }
 
     function setupLLMIssueButtons() {
@@ -1911,10 +2117,9 @@
     }
 
     async function handleLLMApply(key, newTranslation, button) {
-        const card = button.closest('.llm-issue-card');
-        const originalText = button.querySelector('span').textContent;
+        const row = button.closest('.llm-issue-row');
+        const expandRow = document.querySelector(`.llm-issue-expand[data-expand-for="${CSS.escape(key)}"]`);
         button.disabled = true;
-        button.querySelector('span').textContent = 'Applying...';
 
         try {
             const response = await fetch(`/api/review/${fileId}/${language}/${encodeURIComponent(key)}`, {
@@ -1934,29 +2139,37 @@
             document.getElementById('stats-passed').textContent = llmReviewState.cumulativePassed;
             document.getElementById('stats-attention').textContent = llmReviewState.cumulativeAttention;
 
-            // Remove from current issues
+            // Remove from current issues and allIssues
             llmReviewState.currentIssues = llmReviewState.currentIssues.filter(i => i.key !== key);
+            llmReviewState.allIssues = llmReviewState.allIssues.filter(i => i.key !== key);
             updateApplyAllBadge();
 
-            // Animate card removal
-            card.style.opacity = '0';
-            card.style.transform = 'translateX(20px)';
-            setTimeout(() => card.remove(), 300);
+            // Save updated results
+            saveLLMResults();
+
+            // Animate row removal
+            if (row) {
+                row.style.opacity = '0';
+                row.style.transform = 'translateX(20px)';
+                setTimeout(() => row.remove(), 300);
+            }
+            if (expandRow) {
+                expandRow.style.opacity = '0';
+                setTimeout(() => expandRow.remove(), 300);
+            }
 
             showToast('Suggestion applied', 'success');
 
         } catch (error) {
             button.disabled = false;
-            button.querySelector('span').textContent = originalText;
             showToast(error.message, 'error');
         }
     }
 
     async function handleLLMDismiss(key, currentTranslation, button) {
-        const card = button.closest('.llm-issue-card');
-        const originalText = button.querySelector('span').textContent;
+        const row = button.closest('.llm-issue-row');
+        const expandRow = document.querySelector(`.llm-issue-expand[data-expand-for="${CSS.escape(key)}"]`);
         button.disabled = true;
-        button.querySelector('span').textContent = 'Dismissing...';
 
         try {
             const response = await fetch(`/api/review/${fileId}/${language}/${encodeURIComponent(key)}`, {
@@ -1976,29 +2189,37 @@
             document.getElementById('stats-passed').textContent = llmReviewState.cumulativePassed;
             document.getElementById('stats-attention').textContent = llmReviewState.cumulativeAttention;
 
-            // Remove from current issues
+            // Remove from current issues and allIssues
             llmReviewState.currentIssues = llmReviewState.currentIssues.filter(i => i.key !== key);
+            llmReviewState.allIssues = llmReviewState.allIssues.filter(i => i.key !== key);
             updateApplyAllBadge();
 
-            // Animate card removal
-            card.style.opacity = '0';
-            card.style.transform = 'translateX(20px)';
-            setTimeout(() => card.remove(), 300);
+            // Save updated results
+            saveLLMResults();
+
+            // Animate row removal
+            if (row) {
+                row.style.opacity = '0';
+                row.style.transform = 'translateX(20px)';
+                setTimeout(() => row.remove(), 300);
+            }
+            if (expandRow) {
+                expandRow.style.opacity = '0';
+                setTimeout(() => expandRow.remove(), 300);
+            }
 
             showToast('Issue dismissed', 'success');
 
         } catch (error) {
             button.disabled = false;
-            button.querySelector('span').textContent = originalText;
             showToast(error.message, 'error');
         }
     }
 
     async function handleLLMFlag(key, currentTranslation, button) {
-        const card = button.closest('.llm-issue-card');
-        const originalText = button.querySelector('span').textContent;
+        const row = button.closest('.llm-issue-row');
+        const expandRow = document.querySelector(`.llm-issue-expand[data-expand-for="${CSS.escape(key)}"]`);
         button.disabled = true;
-        button.querySelector('span').textContent = 'Flagging...';
 
         try {
             const response = await fetch(`/api/review/${fileId}/${language}/${encodeURIComponent(key)}`, {
@@ -2018,23 +2239,27 @@
             document.getElementById('stats-attention').textContent = llmReviewState.cumulativeAttention;
             document.getElementById('stats-flagged').textContent = llmReviewState.cumulativeFlagged;
 
-            // Remove from current issues
+            // Remove from current issues and allIssues
             llmReviewState.currentIssues = llmReviewState.currentIssues.filter(i => i.key !== key);
+            llmReviewState.allIssues = llmReviewState.allIssues.filter(i => i.key !== key);
             updateApplyAllBadge();
 
-            // Update card styling to show flagged
-            card.classList.add('border-amber-500', 'bg-amber-900/20');
-            card.style.opacity = '0.6';
+            // Save updated results
+            saveLLMResults();
 
-            // Disable all buttons on the card
-            card.querySelectorAll('button').forEach(btn => btn.disabled = true);
-            button.querySelector('span').textContent = 'Flagged';
+            // Update row styling to show flagged
+            if (row) {
+                row.classList.add('bg-amber-900/20', 'opacity-60');
+                row.querySelectorAll('button').forEach(btn => btn.disabled = true);
+            }
+            if (expandRow) {
+                expandRow.classList.add('bg-amber-900/20', 'opacity-60');
+            }
 
             showToast('Flagged for review', 'success');
 
         } catch (error) {
             button.disabled = false;
-            button.querySelector('span').textContent = originalText;
             showToast(error.message, 'error');
         }
     }
@@ -2048,6 +2273,48 @@
             badge.textContent = llmReviewState.currentIssues.length;
         } else {
             applyAllSection.classList.add('hidden');
+        }
+
+        // Also update the button badge
+        updateLLMButtonBadge();
+    }
+
+    // Update the LLM Check button with pending issues badge
+    function updateLLMButtonBadge() {
+        const verifyBtn = document.getElementById('verify-btn');
+        const viewResultsBtn = document.getElementById('view-last-results-btn');
+        const viewResultsMenuBtn = document.getElementById('view-last-results-menu-btn');
+
+        const pendingCount = getPendingIssuesCount();
+
+        if (pendingCount > 0) {
+            // Update verify button text with badge
+            verifyBtn.innerHTML = `
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path>
+                </svg>
+                <span>LLM Check</span>
+                <span class="bg-yellow-500 text-gray-900 text-xs px-1.5 py-0.5 rounded-full font-bold">${pendingCount}</span>
+            `;
+            viewResultsBtn?.classList.remove('hidden');
+            viewResultsMenuBtn?.classList.remove('hidden');
+        } else {
+            // Reset verify button
+            verifyBtn.innerHTML = `
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path>
+                </svg>
+                <span>Run LLM Check</span>
+            `;
+            // Keep view results visible if there are stored results (even if all resolved)
+            const storedResults = loadLLMResults();
+            if (storedResults) {
+                viewResultsBtn?.classList.remove('hidden');
+                viewResultsMenuBtn?.classList.remove('hidden');
+            } else {
+                viewResultsBtn?.classList.add('hidden');
+                viewResultsMenuBtn?.classList.add('hidden');
+            }
         }
     }
 
@@ -2079,11 +2346,15 @@
                     llmReviewState.cumulativeAttention--;
                     llmReviewState.cumulativePassed++;
 
-                    // Remove the card
-                    const card = document.querySelector(`.llm-issue-card[data-key="${CSS.escape(issue.key)}"]`);
-                    if (card) {
-                        card.style.opacity = '0';
-                        card.style.transform = 'translateX(20px)';
+                    // Remove the row
+                    const row = document.querySelector(`.llm-issue-row[data-key="${CSS.escape(issue.key)}"]`);
+                    const expandRow = document.querySelector(`.llm-issue-expand[data-expand-for="${CSS.escape(issue.key)}"]`);
+                    if (row) {
+                        row.style.opacity = '0';
+                        row.style.transform = 'translateX(20px)';
+                    }
+                    if (expandRow) {
+                        expandRow.style.opacity = '0';
                     }
                 } else {
                     failed++;
@@ -2099,6 +2370,10 @@
 
         // Clear issues
         llmReviewState.currentIssues = [];
+        llmReviewState.allIssues = llmReviewState.allIssues.filter(i => !i.suggested_fix);
+
+        // Save updated results
+        saveLLMResults();
 
         // Update UI
         btn.innerHTML = `<span>All Applied!</span>`;
@@ -2109,13 +2384,17 @@
             btn.disabled = false;
             btn.innerHTML = originalHTML;
 
-            // Remove all cards with animation complete
-            document.querySelectorAll('.llm-issue-card').forEach(card => card.remove());
+            // Remove all rows with animation complete
+            document.querySelectorAll('.llm-issue-row').forEach(row => row.remove());
+            document.querySelectorAll('.llm-issue-expand').forEach(row => row.remove());
 
             // Show no issues state
             document.getElementById('llm-issues-list').classList.add('hidden');
             document.getElementById('llm-no-issues').classList.remove('hidden');
         }, 500);
+
+        // Update button badge
+        updateLLMButtonBadge();
 
         // Reload translations
         loadTranslations(currentFilter);
@@ -2138,38 +2417,38 @@
             return;
         }
 
-        // Only handle card navigation when there are cards
-        const cards = document.querySelectorAll('.llm-issue-card:not([style*="opacity: 0"])');
-        if (cards.length === 0) return;
+        // Only handle row navigation when there are rows
+        const rows = document.querySelectorAll('.llm-issue-row:not([style*="opacity: 0"])');
+        if (rows.length === 0) return;
 
-        // Get currently focused card
-        const focusedCard = document.querySelector('.llm-issue-card.ring-2');
-        let currentIndex = focusedCard ? Array.from(cards).indexOf(focusedCard) : -1;
+        // Get currently focused row
+        const focusedRow = document.querySelector('.llm-issue-row.ring-2');
+        let currentIndex = focusedRow ? Array.from(rows).indexOf(focusedRow) : -1;
 
-        // Tab / Shift+Tab to navigate between cards
+        // Tab / Shift+Tab to navigate between rows
         if (e.key === 'Tab') {
             e.preventDefault();
             if (e.shiftKey) {
-                currentIndex = currentIndex <= 0 ? cards.length - 1 : currentIndex - 1;
+                currentIndex = currentIndex <= 0 ? rows.length - 1 : currentIndex - 1;
             } else {
-                currentIndex = currentIndex >= cards.length - 1 ? 0 : currentIndex + 1;
+                currentIndex = currentIndex >= rows.length - 1 ? 0 : currentIndex + 1;
             }
 
-            // Remove focus from previous card
-            cards.forEach(card => card.classList.remove('ring-2', 'ring-blue-500'));
+            // Remove focus from previous row
+            rows.forEach(row => row.classList.remove('ring-2', 'ring-blue-500'));
 
-            // Focus new card
-            cards[currentIndex].classList.add('ring-2', 'ring-blue-500');
-            cards[currentIndex].scrollIntoView({ behavior: 'smooth', block: 'center' });
+            // Focus new row
+            rows[currentIndex].classList.add('ring-2', 'ring-blue-500');
+            rows[currentIndex].scrollIntoView({ behavior: 'smooth', block: 'center' });
             return;
         }
 
-        // Only handle action keys if a card is focused
-        if (!focusedCard) return;
+        // Only handle action keys if a row is focused
+        if (!focusedRow) return;
 
         // Enter or A = Apply
         if (e.key === 'Enter' || e.key === 'a' || e.key === 'A') {
-            const applyBtn = focusedCard.querySelector('.llm-apply-btn');
+            const applyBtn = focusedRow.querySelector('.llm-apply-btn');
             if (applyBtn && !applyBtn.disabled) {
                 e.preventDefault();
                 applyBtn.click();
@@ -2179,7 +2458,7 @@
 
         // D = Dismiss
         if (e.key === 'd' || e.key === 'D') {
-            const dismissBtn = focusedCard.querySelector('.llm-dismiss-btn');
+            const dismissBtn = focusedRow.querySelector('.llm-dismiss-btn');
             if (dismissBtn && !dismissBtn.disabled) {
                 e.preventDefault();
                 dismissBtn.click();
@@ -2189,7 +2468,7 @@
 
         // F = Flag
         if (e.key === 'f' || e.key === 'F') {
-            const flagBtn = focusedCard.querySelector('.llm-flag-btn');
+            const flagBtn = focusedRow.querySelector('.llm-flag-btn');
             if (flagBtn && !flagBtn.disabled) {
                 e.preventDefault();
                 flagBtn.click();
@@ -2337,13 +2616,11 @@
         const translateAllBtn = document.getElementById('translate-all-btn');
         const verifyBtn = document.getElementById('verify-btn');
         const viewResultsBtn = document.getElementById('view-last-results-btn');
-        const searchContainer = document.getElementById('search-container');
         const stateFilterSelect = document.getElementById('state-filter-select');
 
         // Hide all first
         translateAllBtn.classList.add('hidden');
         verifyBtn.classList.add('hidden');
-        searchContainer.classList.add('hidden');
         stateFilterSelect.classList.add('hidden');
 
         if (tabId === 'untranslated') {
@@ -2351,11 +2628,10 @@
         } else if (tabId === 'needs_review') {
             verifyBtn.classList.remove('hidden');
             // Show View Results if we have last results
-            if (llmReviewState.accumulatedIssues.length > 0) {
+            if (llmReviewState.allIssues.length > 0) {
                 viewResultsBtn.classList.remove('hidden');
             }
         } else if (tabId === 'all') {
-            searchContainer.classList.remove('hidden');
             stateFilterSelect.classList.remove('hidden');
         }
     }
@@ -2482,18 +2758,6 @@
         });
     });
 
-    // More menu dropdown toggle
-    document.getElementById('more-menu-btn').addEventListener('click', (e) => {
-        e.stopPropagation();
-        const dropdown = document.getElementById('more-menu-dropdown');
-        dropdown.classList.toggle('hidden');
-    });
-
-    // Close dropdown when clicking outside
-    document.addEventListener('click', () => {
-        document.getElementById('more-menu-dropdown').classList.add('hidden');
-    });
-
     // State filter select handler (All tab)
     document.getElementById('state-filter-select').addEventListener('change', (e) => {
         loadTranslations(e.target.value);
@@ -2518,6 +2782,9 @@
     }
 
     loadLanguageSidebar();
+
+    // Initialize LLM button badge from localStorage on page load
+    updateLLMButtonBadge();
 </script>
 {% endif %}
 {% endblock %}

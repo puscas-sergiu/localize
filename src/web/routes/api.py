@@ -21,6 +21,7 @@ class TranslateRequest(BaseModel):
 class VerifyRequest(BaseModel):
     language: str
     offset: int = 0  # For batch pagination
+    include_reviewed: bool = False  # Re-check already reviewed strings
 
 
 class UpdateTranslationRequest(BaseModel):
@@ -346,6 +347,7 @@ async def update_translation(
 ):
     """Update a single translation."""
     file_storage = request.app.state.file_storage
+    review_history = request.app.state.review_history
 
     content = file_storage.get_content_string(file_id)
     if not content:
@@ -361,6 +363,9 @@ async def update_translation(
     )
 
     file_storage.update_content(file_id, updated_content.encode("utf-8"))
+
+    # Clear review history for this key so it gets re-reviewed
+    review_history.clear_key(file_id, language, key)
 
     # Auto-apply if using direct file mode
     direct_service = request.app.state.direct_file_service
@@ -402,13 +407,12 @@ async def translate_single_string(
 
     # Save the translation
     service = TranslationService()
-    state = "translated" if result.quality_score.category == "green" else "needs_review"
     updated_content = service.update_translation(
         content,
         language,
         body.key,
         result.translation,
-        state,
+        "translated",
     )
 
     file_storage.update_content(file_id, updated_content.encode("utf-8"))
@@ -423,7 +427,7 @@ async def translate_single_string(
         "status": "translated",
         "key": body.key,
         "translation": result.translation,
-        "state": state,
+        "state": "translated",
         "quality_score": result.quality_score.overall,
         "provider": result.provider,
     }
@@ -517,6 +521,8 @@ async def start_verification(request: Request, file_id: str, body: VerifyRequest
     """Start a verification job."""
     file_storage = request.app.state.file_storage
     job_manager = request.app.state.job_manager
+    direct_service = request.app.state.direct_file_service
+    review_history = request.app.state.review_history
 
     if not file_storage.exists(file_id):
         raise HTTPException(404, "File not found")
@@ -533,10 +539,13 @@ async def start_verification(request: Request, file_id: str, body: VerifyRequest
         _run_verification_job(
             file_storage,
             job_manager,
+            direct_service,
+            review_history,
             job.job_id,
             file_id,
             body.language,
             body.offset,
+            body.include_reviewed,
         )
     )
 
@@ -546,10 +555,13 @@ async def start_verification(request: Request, file_id: str, body: VerifyRequest
 async def _run_verification_job(
     file_storage,
     job_manager,
+    direct_service,
+    review_history,
     job_id: str,
     file_id: str,
     language: str,
     offset: int,
+    include_reviewed: bool = False,
 ):
     """Run verification job in background."""
     job_manager.set_running(job_id)
@@ -561,14 +573,26 @@ async def _run_verification_job(
         async def progress_callback(current, total, message, lang):
             await job_manager.send_progress(job_id, current, total, message, lang)
 
-        result = await service.verify_translations(
+        result, updated_content = await service.verify_translations(
             content,
             language,
             offset,
+            include_reviewed,
             progress_callback,
+            review_history=review_history,
+            file_id=file_id,
         )
 
         if result.success:
+            # Save the updated content (passed strings marked as reviewed)
+            if result.auto_reviewed_count > 0:
+                file_storage.update_content(file_id, updated_content.encode("utf-8"))
+
+                # Auto-apply if using direct file mode
+                config = direct_service.get_config()
+                if config and config.file_id == file_id:
+                    direct_service.apply()
+
             job_manager.set_completed(job_id, {
                 "total_reviewed": result.total_reviewed,
                 "passed": result.passed,
@@ -577,6 +601,8 @@ async def _run_verification_job(
                 "has_more": result.has_more,
                 "total_unreviewed": result.total_unreviewed,
                 "next_offset": result.next_offset,
+                "auto_reviewed_count": result.auto_reviewed_count,
+                "skipped_unchanged": result.skipped_unchanged,
             })
             await job_manager.send_complete(job_id, {
                 "success": True,
@@ -587,6 +613,8 @@ async def _run_verification_job(
                 "has_more": result.has_more,
                 "total_unreviewed": result.total_unreviewed,
                 "next_offset": result.next_offset,
+                "auto_reviewed_count": result.auto_reviewed_count,
+                "skipped_unchanged": result.skipped_unchanged,
             })
         else:
             job_manager.set_failed(job_id, result.error)

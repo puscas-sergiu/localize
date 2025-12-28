@@ -10,6 +10,11 @@ from ...translation.translator import HybridTranslator, TranslationStats
 from ...validation.llm_reviewer import LLMReviewer, BulkReviewResult
 from ...config import config
 
+# Import for type hints only
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from .review_history import ReviewHistoryService
+
 
 @dataclass
 class TranslationJobResult:
@@ -31,6 +36,8 @@ class VerificationJobResult:
     has_more: bool = False
     total_unreviewed: int = 0
     next_offset: int = 0
+    auto_reviewed_count: int = 0  # Number of passed strings auto-marked as reviewed
+    skipped_unchanged: int = 0  # Number of strings skipped (already reviewed, unchanged)
     error: Optional[str] = None
 
 
@@ -145,8 +152,7 @@ class TranslationService:
                 # Update xcstrings with translations
                 for result in results:
                     if result.success and result.key in xcstrings.strings:
-                        state = "translated" if result.quality_score.category == "green" else "needs_review"
-                        xcstrings.strings[result.key].set_translation(lang, result.translation, state)
+                        xcstrings.strings[result.key].set_translation(lang, result.translation, "translated")
 
                 # Store stats
                 stats_by_language[lang] = {
@@ -190,22 +196,29 @@ class TranslationService:
         file_content: str,
         language: str,
         offset: int = 0,
+        include_reviewed: bool = False,
         progress_callback: Optional[Callable] = None,
-    ) -> VerificationJobResult:
+        review_history: Optional["ReviewHistoryService"] = None,
+        file_id: Optional[str] = None,
+    ) -> tuple[VerificationJobResult, str]:
         """
         Verify translations using LLM semantic review.
 
-        Reviews all unreviewed translations (any status except "reviewed")
-        in fixed batches of 100.
+        Reviews translations in fixed batches of 100. By default, only reviews
+        unreviewed translations. Pass include_reviewed=True to re-check all.
 
         Args:
             file_content: JSON content of the .xcstrings file
             language: Language code to verify
-            offset: Starting offset for pagination (skip this many unreviewed items)
+            offset: Starting offset for pagination (skip this many items)
+            include_reviewed: If True, also review already-reviewed strings
             progress_callback: Async callback(current, total, message, language)
+            review_history: Optional ReviewHistoryService to skip unchanged translations
+            file_id: File ID (required if review_history is provided)
 
         Returns:
-            VerificationJobResult with batch info (has_more, total_unreviewed, next_offset)
+            Tuple of (VerificationJobResult, updated_file_content)
+            The updated content has passed strings marked as "reviewed"
         """
         BATCH_SIZE = 100  # Fixed batch size
 
@@ -213,8 +226,8 @@ class TranslationService:
             # Parse the file
             xcstrings = self.parser.parse_string(file_content)
 
-            # Collect ALL unreviewed translations (any status except "reviewed")
-            all_unreviewed = []
+            # Collect translations to review
+            all_to_review = []
             for key, entry in xcstrings.strings.items():
                 if not entry.has_translation(language):
                     continue
@@ -227,23 +240,23 @@ class TranslationService:
                 translation = loc.string_unit.value
                 source = entry.get_source_value(xcstrings.source_language)
 
-                # Include all translations except "reviewed"
-                if state != "reviewed":
-                    all_unreviewed.append({
+                # Include based on include_reviewed flag
+                if include_reviewed or state != "reviewed":
+                    all_to_review.append({
                         "key": key,
                         "source": source,
                         "translation": translation,
                         "state": state,
                     })
 
-            total_unreviewed = len(all_unreviewed)
+            total_to_review = len(all_to_review)
 
             # Apply offset and get batch of 100
-            translations_to_review = all_unreviewed[offset:offset + BATCH_SIZE]
-            has_more = (offset + BATCH_SIZE) < total_unreviewed
-            next_offset = offset + len(translations_to_review)
+            translations_batch = all_to_review[offset:offset + BATCH_SIZE]
+            has_more = (offset + BATCH_SIZE) < total_to_review
+            next_offset = offset + len(translations_batch)
 
-            if not translations_to_review:
+            if not translations_batch:
                 return VerificationJobResult(
                     success=True,
                     total_reviewed=0,
@@ -251,9 +264,34 @@ class TranslationService:
                     needs_attention=0,
                     issues=[],
                     has_more=False,
-                    total_unreviewed=total_unreviewed,
+                    total_unreviewed=total_to_review,
                     next_offset=offset,
-                )
+                ), file_content  # Return unchanged content
+
+            # Filter out unchanged translations if review history is available
+            skipped_unchanged = 0
+            translations_to_review = []
+
+            for t in translations_batch:
+                if review_history and file_id:
+                    if review_history.is_unchanged(file_id, language, t["key"], t["source"], t["translation"]):
+                        skipped_unchanged += 1
+                        continue
+                translations_to_review.append(t)
+
+            # If all translations were skipped, return early
+            if not translations_to_review:
+                return VerificationJobResult(
+                    success=True,
+                    total_reviewed=0,
+                    passed=0,
+                    needs_attention=0,
+                    issues=[],
+                    has_more=has_more,
+                    total_unreviewed=total_to_review,
+                    next_offset=next_offset,
+                    skipped_unchanged=skipped_unchanged,
+                ), file_content
 
             # Create reviewer
             reviewer = LLMReviewer()
@@ -308,6 +346,7 @@ class TranslationService:
 
             # Convert BulkReviewResult to VerificationJobResult format
             issues = []
+            flagged_keys = set()
             for item in bulk_result.items:
                 issues.append({
                     "key": item.key,
@@ -316,6 +355,49 @@ class TranslationService:
                     "issues": item.issues,
                     "suggested_fix": item.suggested_fix,
                 })
+                flagged_keys.add(item.key)
+
+            # Auto-mark passed strings as "reviewed"
+            # Passed = all reviewed keys that weren't flagged with issues
+            reviewed_keys = {t["key"] for t in translations_to_review}
+            passed_keys = reviewed_keys - flagged_keys
+            auto_reviewed_count = 0
+
+            for key in passed_keys:
+                if key in xcstrings.strings:
+                    loc = xcstrings.strings[key].localizations.get(language)
+                    if loc and loc.string_unit:
+                        # Only update if not already reviewed
+                        if loc.string_unit.state != "reviewed":
+                            xcstrings.strings[key].set_translation(
+                                language,
+                                loc.string_unit.value,
+                                "reviewed"
+                            )
+                            auto_reviewed_count += 1
+
+            # Record review results to history
+            if review_history and file_id:
+                # Record passed translations
+                for t in translations_to_review:
+                    key = t["key"]
+                    passed = key not in flagged_keys
+                    item_issues = []
+                    if not passed:
+                        # Find issues for this key
+                        for issue in issues:
+                            if issue["key"] == key:
+                                item_issues = issue.get("issues", [])
+                                break
+                    review_history.record_review(
+                        file_id, language, key,
+                        t["source"], t["translation"],
+                        passed=passed,
+                        issues=item_issues,
+                    )
+
+            # Convert back to JSON with updated states
+            updated_content = self.writer.to_string(xcstrings)
 
             return VerificationJobResult(
                 success=True,
@@ -324,9 +406,11 @@ class TranslationService:
                 needs_attention=bulk_result.needs_attention,
                 issues=issues,
                 has_more=has_more,
-                total_unreviewed=total_unreviewed,
+                total_unreviewed=total_to_review,
                 next_offset=next_offset,
-            )
+                auto_reviewed_count=auto_reviewed_count,
+                skipped_unchanged=skipped_unchanged,
+            ), updated_content
 
         except Exception as e:
             return VerificationJobResult(
@@ -336,7 +420,7 @@ class TranslationService:
                 needs_attention=0,
                 issues=[],
                 error=str(e),
-            )
+            ), file_content  # Return unchanged on error
 
     def get_file_stats(self, file_content: str) -> dict:
         """Get statistics for an xcstrings file."""
@@ -420,7 +504,11 @@ class TranslationService:
                     continue
 
                 state = loc.string_unit.state
-                if state_filter and state != state_filter:
+                # Handle "needs_review" filter to include both needs_review and flagged states
+                if state_filter == "needs_review":
+                    if state not in ("needs_review", "flagged"):
+                        continue
+                elif state_filter and state != state_filter:
                     continue
 
                 translations.append({

@@ -145,8 +145,7 @@ def translate(
         # Update xcstrings with translations
         for result in results:
             if result.success and result.key in xcstrings.strings:
-                state = "translated" if result.quality_score.category == "green" else "needs_review"
-                xcstrings.strings[result.key].set_translation(lang, result.translation, state)
+                xcstrings.strings[result.key].set_translation(lang, result.translation, "translated")
 
         # Print statistics
         _print_stats(stats, lang)
