@@ -66,7 +66,7 @@ class OpenAIClient:
                 {"role": "user", "content": user_prompt},
             ],
             temperature=self.temperature,
-            max_tokens=500,
+            max_completion_tokens=500,
         )
 
         result = response.choices[0].message.content.strip()
@@ -115,7 +115,7 @@ class OpenAIClient:
                 {"role": "user", "content": user_prompt},
             ],
             temperature=self.temperature,
-            max_tokens=config.openai_batch_max_tokens,
+            max_completion_tokens=config.openai_batch_max_tokens,
             response_format={"type": "json_object"},
         )
 

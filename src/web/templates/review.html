@@ -70,6 +70,16 @@
                     >
                         Run LLM Verification
                     </button>
+                    <button
+                        id="view-last-results-btn"
+                        class="hidden bg-purple-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-purple-700 transition-colors flex items-center space-x-2"
+                    >
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                        </svg>
+                        <span>View Last Results</span>
+                    </button>
                     <a
                         href="/api/files/{{ file_id }}/download"
                         class="bg-gray-700 text-gray-300 px-4 py-2 rounded-lg font-medium hover:bg-gray-600 transition-colors"
@@ -100,6 +110,21 @@
                     <input type="radio" name="state-filter" value="not_translated" class="text-emerald-500 bg-gray-600 border-gray-500 focus:ring-emerald-500">
                     <span class="text-white text-sm">Not Translated</span>
                 </label>
+                <label class="flex items-center space-x-2 cursor-pointer">
+                    <input type="radio" name="state-filter" value="reviewed" class="text-emerald-500 bg-gray-600 border-gray-500 focus:ring-emerald-500">
+                    <span class="text-white text-sm">Reviewed</span>
+                </label>
+                <label class="flex items-center space-x-2 cursor-pointer">
+                    <input type="radio" name="state-filter" value="flagged" class="text-emerald-500 bg-gray-600 border-gray-500 focus:ring-emerald-500">
+                    <span class="text-white text-sm">Flagged</span>
+                </label>
+                <div class="flex items-center ml-4 pl-4 border-l border-gray-600">
+                    <input type="text"
+                           id="search-input"
+                           placeholder="Search..."
+                           class="bg-gray-700 border border-gray-600 rounded px-3 py-1 text-white text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 w-48"
+                           oninput="handleSearch(this.value)">
+                </div>
             </div>
             <span id="translation-count" class="text-gray-400 text-sm"></span>
         </div>
@@ -133,82 +158,169 @@
         </div>
     </div>
 
-    <!-- Verification Modal -->
-    <div id="verify-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-        <div class="bg-gray-800 rounded-lg border border-gray-700 p-6 max-w-lg w-full mx-4">
-            <h3 class="text-lg font-semibold text-white mb-4">LLM Verification</h3>
+    <!-- LLM Review Full-Screen Overlay -->
+    <div id="llm-review-overlay" class="hidden fixed inset-0 z-50 bg-gray-900/95">
+        <div class="absolute inset-4 md:inset-6 lg:inset-8 bg-gray-800 rounded-2xl border border-gray-700 flex flex-col overflow-hidden">
 
-            <div id="verify-config" class="space-y-4">
-                <div>
-                    <label class="flex items-center space-x-2 cursor-pointer">
-                        <input type="checkbox" id="verify-all" class="rounded text-emerald-500 bg-gray-600 border-gray-500 focus:ring-emerald-500">
-                        <span class="text-white">Review all translations</span>
-                    </label>
-                    <p class="text-sm text-gray-400 mt-1 ml-6">By default, only translations marked as "needs review" are verified</p>
-                </div>
-
-                <div>
-                    <label class="block text-sm font-medium text-gray-300 mb-2">Limit (optional)</label>
-                    <input
-                        type="number"
-                        id="verify-limit"
-                        placeholder="No limit"
-                        min="1"
-                        max="100"
-                        class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white placeholder-gray-500 focus:ring-emerald-500 focus:border-emerald-500"
-                    >
-                </div>
-
-                <div class="flex space-x-3 pt-4">
-                    <button
-                        id="close-verify-modal"
-                        class="flex-1 bg-gray-700 text-white py-2 px-4 rounded-lg font-medium hover:bg-gray-600 transition-colors"
-                    >
-                        Cancel
-                    </button>
-                    <button
-                        id="start-verify"
-                        class="flex-1 bg-blue-600 text-white py-2 px-4 rounded-lg font-medium hover:bg-blue-700 transition-colors"
-                    >
-                        Start Verification
-                    </button>
-                </div>
-            </div>
-
-            <div id="verify-progress" class="hidden space-y-4">
-                <div>
-                    <div class="flex justify-between text-sm text-gray-400 mb-2">
-                        <span id="verify-status">Starting verification...</span>
-                        <span id="verify-percent">0%</span>
+            <!-- Header with Stepper and Close Button -->
+            <div class="px-6 py-4 border-b border-gray-700 bg-gray-750 flex items-center justify-between">
+                <!-- Workflow Stepper -->
+                <div class="flex items-center space-x-4">
+                    <!-- Step 1: Translation (completed) -->
+                    <div class="flex items-center space-x-2">
+                        <div class="w-8 h-8 rounded-full bg-emerald-600 flex items-center justify-center">
+                            <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                            </svg>
+                        </div>
+                        <span class="text-emerald-400 font-medium">Translation</span>
                     </div>
-                    <div class="bg-gray-700 rounded-full h-3">
-                        <div id="verify-progress-bar" class="bg-blue-500 rounded-full h-3 transition-all duration-300" style="width: 0%"></div>
-                    </div>
-                </div>
-            </div>
 
-            <div id="verify-results" class="hidden space-y-4">
-                <div class="grid grid-cols-2 gap-4">
-                    <div class="bg-gray-750 rounded-lg p-4 text-center">
-                        <div class="text-2xl font-bold text-green-400" id="result-passed">0</div>
-                        <div class="text-sm text-gray-400">Passed</div>
-                    </div>
-                    <div class="bg-gray-750 rounded-lg p-4 text-center">
-                        <div class="text-2xl font-bold text-yellow-400" id="result-attention">0</div>
-                        <div class="text-sm text-gray-400">Needs Attention</div>
+                    <!-- Connector -->
+                    <div class="w-12 h-0.5 bg-gray-600"></div>
+
+                    <!-- Step 2: LLM Review (active) -->
+                    <div class="flex items-center space-x-2">
+                        <div id="step2-indicator" class="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center">
+                            <svg id="step2-spinner" class="hidden animate-spin w-5 h-5 text-white" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                            </svg>
+                            <span id="step2-number" class="text-white font-bold">2</span>
+                        </div>
+                        <span class="text-blue-400 font-medium">LLM Review</span>
                     </div>
                 </div>
 
-                <div id="issues-list" class="max-h-64 overflow-y-auto space-y-2">
-                    <!-- Issues will be listed here -->
-                </div>
-
-                <button
-                    id="close-results"
-                    class="w-full bg-gray-700 text-white py-2 px-4 rounded-lg font-medium hover:bg-gray-600 transition-colors"
-                >
-                    Close
+                <!-- Close Button -->
+                <button id="close-llm-overlay" class="text-gray-400 hover:text-white p-2 rounded-lg hover:bg-gray-700 transition-colors">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
                 </button>
+            </div>
+
+            <!-- Progress Section -->
+            <div class="px-6 py-4 border-b border-gray-700 bg-gray-800">
+                <div class="flex items-center justify-between mb-3">
+                    <div class="flex items-center space-x-6">
+                        <span id="batch-indicator" class="text-white font-medium">Batch 0 of 0</span>
+                        <span id="reviewed-indicator" class="text-gray-400">0 of 0 strings reviewed</span>
+                    </div>
+                    <span id="overall-percent" class="text-blue-400 font-bold text-lg">0%</span>
+                </div>
+                <div class="bg-gray-700 rounded-full h-3">
+                    <div id="overall-progress-bar" class="bg-blue-500 rounded-full h-3 transition-all duration-300" style="width: 0%"></div>
+                </div>
+                <div id="current-batch-status" class="text-sm text-gray-400 mt-2">Ready to start verification</div>
+            </div>
+
+            <!-- Summary Stats -->
+            <div class="px-6 py-4 border-b border-gray-700 bg-gray-800">
+                <div class="grid grid-cols-3 gap-4">
+                    <div class="bg-gray-750 rounded-lg p-4 text-center">
+                        <div class="text-3xl font-bold text-emerald-400" id="stats-passed">0</div>
+                        <div class="text-sm text-gray-400 mt-1">Passed</div>
+                    </div>
+                    <div class="bg-gray-750 rounded-lg p-4 text-center">
+                        <div class="text-3xl font-bold text-yellow-400" id="stats-attention">0</div>
+                        <div class="text-sm text-gray-400 mt-1">Needs Attention</div>
+                    </div>
+                    <div class="bg-gray-750 rounded-lg p-4 text-center">
+                        <div class="text-3xl font-bold text-amber-400" id="stats-flagged">0</div>
+                        <div class="text-sm text-gray-400 mt-1">Flagged</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Issues List (scrollable) -->
+            <div class="flex-1 overflow-y-auto px-6 py-4 bg-gray-850" id="llm-issues-container">
+                <!-- Initial state: Start button -->
+                <div id="llm-start-section" class="flex flex-col items-center justify-center h-full">
+                    <svg class="w-16 h-16 text-blue-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path>
+                    </svg>
+                    <h3 class="text-xl font-semibold text-white mb-2">LLM Review</h3>
+                    <p class="text-gray-400 text-center max-w-md mb-6">
+                        This will analyze all unreviewed translations using AI to identify potential issues and suggest improvements. Strings are processed in batches of 100.
+                    </p>
+
+                    <!-- Auto-continue toggle -->
+                    <label class="flex items-center space-x-3 mb-6 cursor-pointer group">
+                        <div class="relative">
+                            <input type="checkbox" id="auto-continue-toggle" class="sr-only peer" checked>
+                            <div class="w-11 h-6 bg-gray-600 rounded-full peer peer-checked:bg-blue-600 transition-colors"></div>
+                            <div class="absolute left-0.5 top-0.5 w-5 h-5 bg-white rounded-full transition-transform peer-checked:translate-x-5"></div>
+                        </div>
+                        <div>
+                            <span class="text-white font-medium">Process all batches automatically</span>
+                            <p class="text-xs text-gray-500">Review issues after all batches complete</p>
+                        </div>
+                    </label>
+
+                    <button id="start-llm-review" class="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-lg font-medium transition-colors flex items-center space-x-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                        <span>Start Verification</span>
+                    </button>
+                </div>
+
+                <!-- Processing state -->
+                <div id="llm-processing-section" class="hidden flex flex-col items-center justify-center h-full">
+                    <svg class="animate-spin w-16 h-16 text-blue-400 mb-4" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    <h3 class="text-xl font-semibold text-white mb-2">Analyzing Translations...</h3>
+                    <p id="processing-status" class="text-gray-400">Processing batch...</p>
+                </div>
+
+                <!-- Issues list -->
+                <div id="llm-issues-list" class="hidden space-y-4">
+                    <!-- Issue cards will be inserted here -->
+                </div>
+
+                <!-- Empty state (no issues found) -->
+                <div id="llm-no-issues" class="hidden flex flex-col items-center justify-center h-full">
+                    <svg class="w-16 h-16 text-emerald-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    <h3 class="text-xl font-semibold text-white mb-2">All Clear!</h3>
+                    <p class="text-gray-400">No issues found in this batch.</p>
+                </div>
+            </div>
+
+            <!-- Footer Actions -->
+            <div class="px-6 py-4 border-t border-gray-700 bg-gray-750 flex items-center justify-between">
+                <div class="flex items-center space-x-4">
+                    <button id="cancel-llm-review" class="bg-gray-700 hover:bg-gray-600 text-white px-6 py-2 rounded-lg font-medium transition-colors">
+                        Cancel Review
+                    </button>
+                    <div class="text-xs text-gray-500 hidden md:flex items-center space-x-3">
+                        <span class="flex items-center"><kbd class="bg-gray-700 px-1.5 py-0.5 rounded text-gray-400">Tab</kbd><span class="ml-1">Navigate</span></span>
+                        <span class="flex items-center"><kbd class="bg-gray-700 px-1.5 py-0.5 rounded text-gray-400">A</kbd><span class="ml-1">Apply</span></span>
+                        <span class="flex items-center"><kbd class="bg-gray-700 px-1.5 py-0.5 rounded text-gray-400">D</kbd><span class="ml-1">Dismiss</span></span>
+                        <span class="flex items-center"><kbd class="bg-gray-700 px-1.5 py-0.5 rounded text-gray-400">F</kbd><span class="ml-1">Flag</span></span>
+                        <span class="flex items-center"><kbd class="bg-gray-700 px-1.5 py-0.5 rounded text-gray-400">Esc</kbd><span class="ml-1">Close</span></span>
+                    </div>
+                </div>
+
+                <div class="flex items-center space-x-3">
+                    <div id="apply-all-section" class="hidden">
+                        <button id="apply-all-btn" class="bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-2 rounded-lg font-medium transition-colors flex items-center space-x-2">
+                            <span>Apply All</span>
+                            <span id="apply-all-badge" class="bg-emerald-800 px-2 py-0.5 rounded text-sm">0</span>
+                        </button>
+                    </div>
+                    <button id="continue-llm-review" class="hidden bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-medium transition-colors">
+                        Continue to Next Batch
+                    </button>
+                    <button id="finish-llm-review" class="hidden bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-2 rounded-lg font-medium transition-colors">
+                        Finish Review
+                    </button>
+                </div>
             </div>
         </div>
     </div>
@@ -415,6 +527,12 @@
     let language = '{{ language }}';
     let translations = [];
     let currentFilter = '';
+    let searchQuery = '';
+
+    function handleSearch(query) {
+        searchQuery = query.toLowerCase().trim();
+        renderTranslations();
+    }
 
     // Language display names
     const languageNames = {
@@ -505,13 +623,28 @@
         const tbody = document.getElementById('translations-tbody');
         const count = document.getElementById('translation-count');
 
-        count.textContent = `${translations.length} strings`;
+        // Apply search filter
+        let displayTranslations = translations;
+        if (searchQuery) {
+            displayTranslations = translations.filter(t =>
+                t.key.toLowerCase().includes(searchQuery) ||
+                t.source.toLowerCase().includes(searchQuery) ||
+                (t.translation && t.translation.toLowerCase().includes(searchQuery))
+            );
+        }
 
-        if (translations.length === 0) {
+        // Update count (show filtered vs total when searching)
+        if (searchQuery && displayTranslations.length !== translations.length) {
+            count.textContent = `${displayTranslations.length} of ${translations.length} strings`;
+        } else {
+            count.textContent = `${displayTranslations.length} strings`;
+        }
+
+        if (displayTranslations.length === 0) {
             tbody.innerHTML = `
                 <tr>
                     <td colspan="5" class="px-6 py-12 text-center text-gray-400">
-                        No translations found
+                        ${searchQuery ? 'No matches found' : 'No translations found'}
                     </td>
                 </tr>
             `;
@@ -519,20 +652,27 @@
         }
 
         let html = '';
-        for (const t of translations) {
+        for (const t of displayTranslations) {
             const isUntranslated = t.state === 'not_translated' || !t.translation;
-            const stateColor = t.state === 'translated' ? 'bg-emerald-600' :
+            const isReviewed = t.state === 'reviewed';
+            const isFlagged = t.state === 'flagged';
+            const stateColor = t.state === 'reviewed' ? 'bg-blue-600' :
+                              t.state === 'flagged' ? 'bg-amber-600' :
+                              t.state === 'translated' ? 'bg-emerald-600' :
                               t.state === 'needs_review' ? 'bg-yellow-600' :
                               t.state === 'not_translated' ? 'bg-gray-500' : 'bg-gray-600';
-            const stateText = t.state === 'translated' ? 'Translated' :
+            const stateText = t.state === 'reviewed' ? 'Reviewed' :
+                             t.state === 'flagged' ? 'Flagged' :
+                             t.state === 'translated' ? 'Translated' :
                              t.state === 'needs_review' ? 'Needs Review' :
                              t.state === 'not_translated' ? 'New' : t.state;
 
-            const rowBgClass = isUntranslated ? 'bg-amber-900/10' : '';
+            const rowBgClass = isUntranslated ? 'bg-amber-900/10' : (isReviewed ? 'bg-blue-900/5' : (isFlagged ? 'bg-amber-900/10' : ''));
+            const rowBorderClass = isReviewed ? 'border-l-2 border-l-blue-500' : (isFlagged ? 'border-l-2 border-l-amber-500' : '');
             const inputBorderClass = isUntranslated ? 'border-dashed border-amber-500/50' : 'border-gray-600';
 
             html += `
-                <tr class="${rowBgClass} hover:bg-gray-750 transition-colors" data-key="${escapeHtml(t.key)}">
+                <tr class="${rowBgClass} ${rowBorderClass} hover:bg-gray-750 transition-colors" data-key="${escapeHtml(t.key)}">
                     <td class="px-4 py-3">
                         <code class="text-xs text-gray-400 break-all">${escapeHtml(t.key)}</code>
                     </td>
@@ -560,6 +700,7 @@
                         <span class="state-badge ${stateColor} text-white text-xs px-2 py-1 rounded">${stateText}</span>
                     </td>
                     <td class="px-4 py-3 text-right">
+                        <div class="flex items-center justify-end space-x-1">
                         ${isUntranslated ? `
                             <button
                                 class="translate-single-btn text-blue-400 hover:text-blue-300 p-1"
@@ -580,10 +721,22 @@
                                 title="LLM Review"
                             >
                                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"></path>
                                 </svg>
                             </button>
+                            ${!isReviewed ? `
+                            <button
+                                class="approve-btn text-emerald-400 hover:text-emerald-300 p-1"
+                                data-key="${escapeHtml(t.key)}"
+                                title="Mark as reviewed"
+                            >
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                                </svg>
+                            </button>
+                            ` : ''}
                         `}
+                        </div>
                     </td>
                 </tr>
             `;
@@ -593,6 +746,7 @@
         setupInlineEditing();
         setupTranslateSingleButtons();
         setupReviewSingleButtons();
+        setupApproveButtons();
     }
 
     function escapeHtml(text) {
@@ -733,6 +887,71 @@
             button.remove();
 
             showToast(`Translated via ${data.provider}`, 'success');
+
+        } catch (error) {
+            showToast(error.message, 'error');
+            button.disabled = false;
+            button.innerHTML = originalHtml;
+        }
+    }
+
+    // Manual approve buttons
+    function setupApproveButtons() {
+        document.querySelectorAll('.approve-btn').forEach(btn => {
+            btn.addEventListener('click', async function() {
+                const key = this.dataset.key;
+                await approveTranslation(key, this);
+            });
+        });
+    }
+
+    async function approveTranslation(key, button) {
+        const row = document.querySelector(`tr[data-key="${CSS.escape(key)}"]`);
+        const input = row?.querySelector('.translation-input');
+        const translation = input?.value || input?.dataset.original;
+
+        if (!translation) {
+            showToast('No translation to approve', 'error');
+            return;
+        }
+
+        // Show loading state
+        const originalHtml = button.innerHTML;
+        button.disabled = true;
+        button.innerHTML = `
+            <svg class="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+        `;
+
+        try {
+            const response = await fetch(`/api/review/${fileId}/${language}/${encodeURIComponent(key)}`, {
+                method: 'PUT',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    translation: translation,
+                    state: 'reviewed',
+                }),
+            });
+
+            if (!response.ok) throw new Error('Failed to approve');
+
+            // Update state badge to reviewed
+            const stateBadge = row?.querySelector('.state-badge');
+            if (stateBadge) {
+                stateBadge.className = 'state-badge bg-blue-600 text-white text-xs px-2 py-1 rounded';
+                stateBadge.textContent = 'Reviewed';
+            }
+
+            // Update row styling
+            row?.classList.remove('bg-amber-900/10');
+            row?.classList.add('bg-blue-900/5', 'border-l-2', 'border-l-blue-500');
+
+            // Remove approve button (no longer needed for reviewed items)
+            button.remove();
+
+            showToast('Marked as reviewed', 'success');
 
         } catch (error) {
             showToast(error.message, 'error');
@@ -889,7 +1108,7 @@
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({
                     translation: newTranslation,
-                    state: 'translated',
+                    state: 'reviewed',
                 }),
             });
 
@@ -910,12 +1129,20 @@
                 reviewBtn.dataset.translation = newTranslation;
             }
 
-            // Update state badge to translated
+            // Update state badge to reviewed
             const stateBadge = row?.querySelector('.state-badge');
             if (stateBadge) {
-                stateBadge.className = 'state-badge bg-emerald-600 text-white text-xs px-2 py-1 rounded';
-                stateBadge.textContent = 'Translated';
+                stateBadge.className = 'state-badge bg-blue-600 text-white text-xs px-2 py-1 rounded';
+                stateBadge.textContent = 'Reviewed';
             }
+
+            // Update row styling for reviewed state
+            row?.classList.remove('bg-amber-900/10');
+            row?.classList.add('bg-blue-900/5', 'border-l-2', 'border-l-blue-500');
+
+            // Remove approve button (no longer needed for reviewed items)
+            const approveBtn = row?.querySelector('.approve-btn');
+            approveBtn?.remove();
 
             // Close modal and show success
             document.getElementById('review-single-modal').classList.add('hidden');
@@ -1024,34 +1251,211 @@
         });
     });
 
-    // Verification modal (existing functionality)
-    const verifyModal = document.getElementById('verify-modal');
-    const verifyConfig = document.getElementById('verify-config');
-    const verifyProgress = document.getElementById('verify-progress');
-    const verifyResults = document.getElementById('verify-results');
+    // ==========================================
+    // LLM Review Full-Screen Overlay
+    // ==========================================
 
+    // State tracking
+    let llmReviewState = {
+        nextOffset: 0,
+        totalUnreviewed: 0,
+        processedBatches: 0,
+        totalBatches: 0,
+        cumulativePassed: 0,
+        cumulativeAttention: 0,
+        cumulativeFlagged: 0,
+        currentIssues: [],
+        allIssues: [],  // Accumulate all issues across batches in auto mode
+        isProcessing: false,
+        autoMode: true,  // Auto-continue through batches
+        lastResults: null  // Store last results for re-viewing
+    };
+
+    // DOM element references
+    const llmOverlay = document.getElementById('llm-review-overlay');
+
+    // Open overlay when "Run LLM Verification" is clicked
     document.getElementById('verify-btn').addEventListener('click', () => {
-        verifyModal.classList.remove('hidden');
-        verifyConfig.classList.remove('hidden');
-        verifyProgress.classList.add('hidden');
-        verifyResults.classList.add('hidden');
+        openLLMReviewOverlay();
     });
 
-    document.getElementById('close-verify-modal').addEventListener('click', () => {
-        verifyModal.classList.add('hidden');
+    function openLLMReviewOverlay() {
+        // Reset state
+        llmReviewState = {
+            nextOffset: 0,
+            totalUnreviewed: 0,
+            processedBatches: 0,
+            totalBatches: 0,
+            cumulativePassed: 0,
+            cumulativeAttention: 0,
+            cumulativeFlagged: 0,
+            currentIssues: [],
+            allIssues: [],
+            isProcessing: false,
+            autoMode: true
+        };
+
+        // Reset UI elements
+        document.getElementById('batch-indicator').textContent = 'Batch 0 of 0';
+        document.getElementById('reviewed-indicator').textContent = '0 of 0 strings reviewed';
+        document.getElementById('overall-percent').textContent = '0%';
+        document.getElementById('overall-progress-bar').style.width = '0%';
+        document.getElementById('current-batch-status').textContent = 'Ready to start verification';
+        document.getElementById('stats-passed').textContent = '0';
+        document.getElementById('stats-attention').textContent = '0';
+        document.getElementById('stats-flagged').textContent = '0';
+
+        // Show start section, hide others
+        document.getElementById('llm-start-section').classList.remove('hidden');
+        document.getElementById('llm-processing-section').classList.add('hidden');
+        document.getElementById('llm-issues-list').classList.add('hidden');
+        document.getElementById('llm-no-issues').classList.add('hidden');
+
+        // Reset footer buttons
+        document.getElementById('apply-all-section').classList.add('hidden');
+        document.getElementById('continue-llm-review').classList.add('hidden');
+        document.getElementById('finish-llm-review').classList.add('hidden');
+
+        // Reset step indicator
+        document.getElementById('step2-spinner').classList.add('hidden');
+        document.getElementById('step2-number').classList.remove('hidden');
+
+        // Show overlay
+        llmOverlay.classList.remove('hidden');
+    }
+
+    function closeLLMReviewOverlay(force = false) {
+        // Check if there are pending issues that haven't been addressed
+        const pendingIssues = llmReviewState.currentIssues.length;
+
+        if (!force && pendingIssues > 0) {
+            const confirmed = confirm(
+                `You have ${pendingIssues} unresolved issue${pendingIssues > 1 ? 's' : ''} with suggestions.\n\n` +
+                `Close anyway? You can re-open the results using "View Last Results" button.`
+            );
+            if (!confirmed) return;
+        }
+
+        // Save results so they can be re-viewed
+        if (llmReviewState.allIssues.length > 0 || llmReviewState.currentIssues.length > 0) {
+            llmReviewState.lastResults = {
+                issues: llmReviewState.autoMode ? [...llmReviewState.allIssues] : [...llmReviewState.currentIssues],
+                passed: llmReviewState.cumulativePassed,
+                attention: llmReviewState.cumulativeAttention,
+                flagged: llmReviewState.cumulativeFlagged,
+                total: llmReviewState.totalUnreviewed
+            };
+            // Show the "View Last Results" button
+            document.getElementById('view-last-results-btn')?.classList.remove('hidden');
+        }
+
+        llmOverlay.classList.add('hidden');
+        // Refresh the main table and sidebar
+        loadTranslations(currentFilter);
+        loadLanguageSidebar();
+    }
+
+    // Close overlay handlers
+    document.getElementById('close-llm-overlay').addEventListener('click', () => closeLLMReviewOverlay(false));
+    document.getElementById('cancel-llm-review').addEventListener('click', () => closeLLMReviewOverlay(false));
+
+    // View Last Results button
+    document.getElementById('view-last-results-btn').addEventListener('click', () => {
+        if (!llmReviewState.lastResults) return;
+
+        const results = llmReviewState.lastResults;
+
+        // Restore state from last results
+        llmReviewState.cumulativePassed = results.passed;
+        llmReviewState.cumulativeAttention = results.attention;
+        llmReviewState.cumulativeFlagged = results.flagged;
+        llmReviewState.totalUnreviewed = results.total;
+        llmReviewState.currentIssues = results.issues.filter(i => i.suggested_fix);
+        llmReviewState.allIssues = results.issues;
+        llmReviewState.autoMode = true;
+        llmReviewState.processedBatches = Math.ceil(results.total / 100);
+        llmReviewState.totalBatches = llmReviewState.processedBatches;
+        llmReviewState.nextOffset = results.total;
+
+        // Update UI elements
+        document.getElementById('batch-indicator').textContent = `Batch ${llmReviewState.processedBatches} of ${llmReviewState.totalBatches}`;
+        document.getElementById('reviewed-indicator').textContent = `${results.total} of ${results.total} strings reviewed`;
+        document.getElementById('overall-percent').textContent = '100%';
+        document.getElementById('overall-progress-bar').style.width = '100%';
+        document.getElementById('current-batch-status').textContent = `Viewing saved results. ${results.issues.length} issues found.`;
+        document.getElementById('stats-passed').textContent = results.passed;
+        document.getElementById('stats-attention').textContent = results.attention;
+        document.getElementById('stats-flagged').textContent = results.flagged;
+
+        // Hide start section, show results
+        document.getElementById('llm-start-section').classList.add('hidden');
+        document.getElementById('llm-processing-section').classList.add('hidden');
+        document.getElementById('llm-no-issues').classList.add('hidden');
+
+        // Render issues
+        if (results.issues.length > 0) {
+            renderLLMIssueCards(results.issues);
+            document.getElementById('llm-issues-list').classList.remove('hidden');
+
+            if (llmReviewState.currentIssues.length > 0) {
+                document.getElementById('apply-all-section').classList.remove('hidden');
+                document.getElementById('apply-all-badge').textContent = llmReviewState.currentIssues.length;
+            }
+        } else {
+            document.getElementById('llm-issues-list').classList.add('hidden');
+            document.getElementById('llm-no-issues').classList.remove('hidden');
+        }
+
+        // Show finish button, hide continue
+        document.getElementById('continue-llm-review').classList.add('hidden');
+        document.getElementById('finish-llm-review').classList.remove('hidden');
+
+        // Reset step indicator
+        document.getElementById('step2-spinner').classList.add('hidden');
+        document.getElementById('step2-number').classList.remove('hidden');
+
+        // Show overlay
+        llmOverlay.classList.remove('hidden');
     });
 
-    document.getElementById('close-results').addEventListener('click', () => {
-        verifyModal.classList.add('hidden');
+    // Start verification
+    document.getElementById('start-llm-review').addEventListener('click', () => {
+        // Read auto-continue toggle state
+        llmReviewState.autoMode = document.getElementById('auto-continue-toggle').checked;
+        llmReviewState.allIssues = []; // Reset accumulated issues
+        startLLMVerification(0);
     });
 
-    document.getElementById('start-verify').addEventListener('click', async () => {
-        verifyConfig.classList.add('hidden');
-        verifyProgress.classList.remove('hidden');
+    // Continue to next batch
+    document.getElementById('continue-llm-review').addEventListener('click', () => {
+        startLLMVerification(llmReviewState.nextOffset);
+    });
 
-        const reviewAll = document.getElementById('verify-all').checked;
-        const limitInput = document.getElementById('verify-limit').value;
-        const limit = limitInput ? parseInt(limitInput) : null;
+    // Finish review (force close, no confirmation needed)
+    document.getElementById('finish-llm-review').addEventListener('click', () => closeLLMReviewOverlay(true));
+
+    async function startLLMVerification(offset = 0) {
+        llmReviewState.isProcessing = true;
+
+        // Show processing state
+        document.getElementById('llm-start-section').classList.add('hidden');
+        document.getElementById('llm-processing-section').classList.remove('hidden');
+        document.getElementById('llm-issues-list').classList.add('hidden');
+        document.getElementById('llm-no-issues').classList.add('hidden');
+
+        // Show spinner in step indicator
+        document.getElementById('step2-spinner').classList.remove('hidden');
+        document.getElementById('step2-number').classList.add('hidden');
+
+        // Hide action buttons during processing
+        document.getElementById('continue-llm-review').classList.add('hidden');
+        document.getElementById('finish-llm-review').classList.add('hidden');
+
+        document.getElementById('current-batch-status').textContent = 'Starting verification...';
+        document.getElementById('processing-status').textContent = 'Processing batch...';
+
+        // Clear issues list for new batch
+        document.getElementById('llm-issues-list').innerHTML = '';
 
         try {
             const response = await fetch(`/api/verify/${fileId}`, {
@@ -1059,71 +1463,564 @@
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({
                     language: language,
-                    review_all: reviewAll,
-                    limit: limit,
+                    offset: offset,
                 }),
             });
 
             if (!response.ok) throw new Error('Failed to start verification');
 
             const data = await response.json();
-            connectVerifySSE(data.job_id);
+            connectLLMVerifySSE(data.job_id);
 
         } catch (error) {
             showToast(error.message, 'error');
-            verifyModal.classList.add('hidden');
+            llmReviewState.isProcessing = false;
+            document.getElementById('step2-spinner').classList.add('hidden');
+            document.getElementById('step2-number').classList.remove('hidden');
+            document.getElementById('llm-processing-section').classList.add('hidden');
+            document.getElementById('llm-start-section').classList.remove('hidden');
         }
-    });
+    }
 
-    function connectVerifySSE(jobId) {
+    function connectLLMVerifySSE(jobId) {
         const eventSource = new EventSource(`/api/verify/${jobId}/stream`);
 
         eventSource.addEventListener('progress', (e) => {
             const data = JSON.parse(e.data);
-            document.getElementById('verify-progress-bar').style.width = `${data.percentage}%`;
-            document.getElementById('verify-percent').textContent = `${Math.round(data.percentage)}%`;
-            document.getElementById('verify-status').textContent = data.message;
+            document.getElementById('processing-status').textContent = data.message;
+            document.getElementById('current-batch-status').textContent = data.message;
         });
 
         eventSource.addEventListener('complete', (e) => {
             eventSource.close();
             const data = JSON.parse(e.data);
-            showVerifyResults(data.result);
+            showLLMVerifyResults(data.result);
         });
 
         eventSource.addEventListener('error', (e) => {
             eventSource.close();
             showToast('Verification failed', 'error');
-            verifyModal.classList.add('hidden');
+            llmReviewState.isProcessing = false;
+            document.getElementById('step2-spinner').classList.add('hidden');
+            document.getElementById('step2-number').classList.remove('hidden');
+            document.getElementById('llm-processing-section').classList.add('hidden');
+            document.getElementById('llm-start-section').classList.remove('hidden');
         });
     }
 
-    function showVerifyResults(result) {
-        verifyProgress.classList.add('hidden');
-        verifyResults.classList.remove('hidden');
+    function showLLMVerifyResults(result) {
+        // Update state
+        llmReviewState.nextOffset = result.next_offset || 0;
+        llmReviewState.totalUnreviewed = result.total_unreviewed || 0;
+        llmReviewState.processedBatches++;
 
-        document.getElementById('result-passed').textContent = result.passed;
-        document.getElementById('result-attention').textContent = result.needs_attention;
+        // Calculate total batches (100 per batch)
+        const batchSize = 100;
+        llmReviewState.totalBatches = Math.ceil(llmReviewState.totalUnreviewed / batchSize);
 
-        const issuesList = document.getElementById('issues-list');
-        if (result.issues && result.issues.length > 0) {
-            let html = '<div class="text-sm text-gray-400 mb-2">Issues found:</div>';
-            for (const issue of result.issues) {
-                html += `
-                    <div class="bg-gray-750 rounded-lg p-3">
-                        <code class="text-xs text-gray-400 break-all">${escapeHtml(issue.key)}</code>
-                        <div class="text-yellow-400 text-sm mt-1">${issue.issues.join(', ')}</div>
-                        ${issue.suggested_fix ? `<div class="text-emerald-400 text-sm mt-1">Suggested: ${escapeHtml(issue.suggested_fix)}</div>` : ''}
-                    </div>
-                `;
-            }
-            issuesList.innerHTML = html;
-        } else {
-            issuesList.innerHTML = '<div class="text-center text-gray-400">No issues found!</div>';
+        // Accumulate counts
+        llmReviewState.cumulativePassed += result.passed || 0;
+        llmReviewState.cumulativeAttention += result.needs_attention || 0;
+
+        // Store issues - accumulate in auto mode
+        const newIssues = result.issues || [];
+        if (llmReviewState.autoMode) {
+            // Accumulate all issues across batches
+            llmReviewState.allIssues = [...llmReviewState.allIssues, ...newIssues];
+        }
+        llmReviewState.currentIssues = newIssues.filter(issue => issue.suggested_fix);
+
+        // Update progress indicators
+        updateLLMProgressUI();
+
+        // Update stats
+        document.getElementById('stats-passed').textContent = llmReviewState.cumulativePassed;
+        document.getElementById('stats-attention').textContent = llmReviewState.cumulativeAttention;
+        document.getElementById('stats-flagged').textContent = llmReviewState.cumulativeFlagged;
+
+        // AUTO MODE: Continue to next batch automatically
+        if (llmReviewState.autoMode && result.has_more) {
+            document.getElementById('current-batch-status').textContent = `Processing batch ${llmReviewState.processedBatches + 1} of ${llmReviewState.totalBatches}...`;
+            // Small delay to allow UI to update before starting next batch
+            setTimeout(() => {
+                startLLMVerification(llmReviewState.nextOffset);
+            }, 100);
+            return;
         }
 
+        // MANUAL MODE or ALL BATCHES COMPLETE: Show results
+        llmReviewState.isProcessing = false;
+
+        // Hide processing, show results
+        document.getElementById('llm-processing-section').classList.add('hidden');
+        document.getElementById('step2-spinner').classList.add('hidden');
+        document.getElementById('step2-number').classList.remove('hidden');
+
+        // In auto mode, use all accumulated issues; in manual mode, use current batch issues
+        const issuesToShow = llmReviewState.autoMode ? llmReviewState.allIssues : newIssues;
+        const issuesWithFixes = issuesToShow.filter(issue => issue.suggested_fix);
+
+        // Update currentIssues for Apply All functionality
+        if (llmReviewState.autoMode) {
+            llmReviewState.currentIssues = issuesWithFixes;
+        }
+
+        // Show issues or no-issues state
+        if (issuesToShow.length > 0) {
+            renderLLMIssueCards(issuesToShow);
+            document.getElementById('llm-issues-list').classList.remove('hidden');
+            document.getElementById('llm-no-issues').classList.add('hidden');
+
+            // Show Apply All if there are suggestions
+            if (issuesWithFixes.length > 0) {
+                document.getElementById('apply-all-section').classList.remove('hidden');
+                document.getElementById('apply-all-badge').textContent = issuesWithFixes.length;
+            }
+        } else {
+            document.getElementById('llm-issues-list').classList.add('hidden');
+            document.getElementById('llm-no-issues').classList.remove('hidden');
+            document.getElementById('apply-all-section').classList.add('hidden');
+        }
+
+        // Show Continue or Finish button
+        if (result.has_more) {
+            // Manual mode with more batches
+            document.getElementById('continue-llm-review').classList.remove('hidden');
+            document.getElementById('finish-llm-review').classList.add('hidden');
+            document.getElementById('current-batch-status').textContent = `Batch complete. ${llmReviewState.totalUnreviewed - llmReviewState.nextOffset} strings remaining.`;
+        } else {
+            // All batches complete
+            document.getElementById('continue-llm-review').classList.add('hidden');
+            document.getElementById('finish-llm-review').classList.remove('hidden');
+            if (llmReviewState.autoMode) {
+                document.getElementById('current-batch-status').textContent = `All ${llmReviewState.totalUnreviewed} strings reviewed! Found ${llmReviewState.allIssues.length} issues.`;
+            } else {
+                document.getElementById('current-batch-status').textContent = 'All strings have been reviewed!';
+            }
+        }
+
+        // Refresh main table in background
         loadTranslations(currentFilter);
     }
+
+    function updateLLMProgressUI() {
+        const reviewed = llmReviewState.nextOffset;
+        const total = llmReviewState.totalUnreviewed;
+        const percentage = total > 0 ? Math.round((reviewed / total) * 100) : 0;
+
+        document.getElementById('batch-indicator').textContent = `Batch ${llmReviewState.processedBatches} of ${llmReviewState.totalBatches || '?'}`;
+        document.getElementById('reviewed-indicator').textContent = `${reviewed} of ${total} strings reviewed`;
+        document.getElementById('overall-percent').textContent = `${percentage}%`;
+        document.getElementById('overall-progress-bar').style.width = `${percentage}%`;
+    }
+
+    function renderLLMIssueCards(issues) {
+        const container = document.getElementById('llm-issues-list');
+        let html = '';
+
+        for (const issue of issues) {
+            html += `
+                <div class="llm-issue-card bg-gray-750 rounded-lg p-5 border border-gray-600 transition-all duration-300" data-key="${escapeHtml(issue.key)}">
+                    <!-- Key -->
+                    <div class="mb-3">
+                        <span class="text-xs text-gray-500 uppercase tracking-wider">Key</span>
+                        <code class="block text-sm text-gray-300 mt-1 break-all">${escapeHtml(issue.key)}</code>
+                    </div>
+
+                    <!-- Source and Current Translation -->
+                    <div class="grid md:grid-cols-2 gap-4 mb-4">
+                        <div>
+                            <span class="text-xs text-gray-500 uppercase tracking-wider">Source (EN)</span>
+                            <p class="text-base text-gray-200 mt-1">${escapeHtml(issue.source || '')}</p>
+                        </div>
+                        <div>
+                            <span class="text-xs text-gray-500 uppercase tracking-wider">Current Translation</span>
+                            <p class="text-base text-white mt-1">${escapeHtml(issue.translation || '')}</p>
+                        </div>
+                    </div>
+
+                    <!-- Issues Found -->
+                    <div class="mb-4">
+                        <span class="text-xs text-gray-500 uppercase tracking-wider">Issues Found</span>
+                        <div class="flex flex-wrap gap-2 mt-2">
+                            ${issue.issues.map(i => `
+                                <span class="inline-flex items-center px-2.5 py-1 rounded text-sm bg-yellow-900/30 text-yellow-400 border border-yellow-700/50">
+                                    <svg class="w-3.5 h-3.5 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                                    </svg>
+                                    ${escapeHtml(i)}
+                                </span>
+                            `).join('')}
+                        </div>
+                    </div>
+
+                    ${issue.suggested_fix ? `
+                    <!-- Suggested Fix -->
+                    <div class="mb-4 p-3 bg-emerald-900/20 rounded-lg border border-emerald-700/30">
+                        <span class="text-xs text-emerald-500 uppercase tracking-wider">Suggested Fix</span>
+                        <p class="text-base text-emerald-300 mt-1">${escapeHtml(issue.suggested_fix)}</p>
+                    </div>
+                    ` : ''}
+
+                    <!-- Action Buttons -->
+                    <div class="flex items-center justify-end space-x-3 pt-3 border-t border-gray-600">
+                        ${issue.suggested_fix ? `
+                        <button
+                            class="llm-apply-btn bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center space-x-2"
+                            data-key="${escapeHtml(issue.key)}"
+                            data-suggestion="${escapeHtml(issue.suggested_fix)}"
+                        >
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                            </svg>
+                            <span>Apply</span>
+                        </button>
+                        ` : ''}
+                        <button
+                            class="llm-dismiss-btn bg-gray-600 hover:bg-gray-500 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center space-x-2"
+                            data-key="${escapeHtml(issue.key)}"
+                            data-translation="${escapeHtml(issue.translation || '')}"
+                        >
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                            </svg>
+                            <span>Dismiss</span>
+                        </button>
+                        <button
+                            class="llm-flag-btn bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center space-x-2"
+                            data-key="${escapeHtml(issue.key)}"
+                            data-translation="${escapeHtml(issue.translation || '')}"
+                        >
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9"></path>
+                            </svg>
+                            <span>Flag</span>
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+
+        container.innerHTML = html;
+        setupLLMIssueButtons();
+    }
+
+    function setupLLMIssueButtons() {
+        // Apply buttons
+        document.querySelectorAll('.llm-apply-btn').forEach(btn => {
+            btn.addEventListener('click', async function() {
+                const key = this.dataset.key;
+                const suggestion = this.dataset.suggestion;
+                await handleLLMApply(key, suggestion, this);
+            });
+        });
+
+        // Dismiss buttons
+        document.querySelectorAll('.llm-dismiss-btn').forEach(btn => {
+            btn.addEventListener('click', async function() {
+                const key = this.dataset.key;
+                const translation = this.dataset.translation;
+                await handleLLMDismiss(key, translation, this);
+            });
+        });
+
+        // Flag buttons
+        document.querySelectorAll('.llm-flag-btn').forEach(btn => {
+            btn.addEventListener('click', async function() {
+                const key = this.dataset.key;
+                const translation = this.dataset.translation;
+                await handleLLMFlag(key, translation, this);
+            });
+        });
+    }
+
+    async function handleLLMApply(key, newTranslation, button) {
+        const card = button.closest('.llm-issue-card');
+        const originalText = button.querySelector('span').textContent;
+        button.disabled = true;
+        button.querySelector('span').textContent = 'Applying...';
+
+        try {
+            const response = await fetch(`/api/review/${fileId}/${language}/${encodeURIComponent(key)}`, {
+                method: 'PUT',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    translation: newTranslation,
+                    state: 'reviewed',
+                }),
+            });
+
+            if (!response.ok) throw new Error('Failed to apply');
+
+            // Update stats
+            llmReviewState.cumulativeAttention--;
+            llmReviewState.cumulativePassed++;
+            document.getElementById('stats-passed').textContent = llmReviewState.cumulativePassed;
+            document.getElementById('stats-attention').textContent = llmReviewState.cumulativeAttention;
+
+            // Remove from current issues
+            llmReviewState.currentIssues = llmReviewState.currentIssues.filter(i => i.key !== key);
+            updateApplyAllBadge();
+
+            // Animate card removal
+            card.style.opacity = '0';
+            card.style.transform = 'translateX(20px)';
+            setTimeout(() => card.remove(), 300);
+
+            showToast('Suggestion applied', 'success');
+
+        } catch (error) {
+            button.disabled = false;
+            button.querySelector('span').textContent = originalText;
+            showToast(error.message, 'error');
+        }
+    }
+
+    async function handleLLMDismiss(key, currentTranslation, button) {
+        const card = button.closest('.llm-issue-card');
+        const originalText = button.querySelector('span').textContent;
+        button.disabled = true;
+        button.querySelector('span').textContent = 'Dismissing...';
+
+        try {
+            const response = await fetch(`/api/review/${fileId}/${language}/${encodeURIComponent(key)}`, {
+                method: 'PUT',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    translation: currentTranslation,
+                    state: 'reviewed',
+                }),
+            });
+
+            if (!response.ok) throw new Error('Failed to dismiss');
+
+            // Update stats (move from attention to passed)
+            llmReviewState.cumulativeAttention--;
+            llmReviewState.cumulativePassed++;
+            document.getElementById('stats-passed').textContent = llmReviewState.cumulativePassed;
+            document.getElementById('stats-attention').textContent = llmReviewState.cumulativeAttention;
+
+            // Remove from current issues
+            llmReviewState.currentIssues = llmReviewState.currentIssues.filter(i => i.key !== key);
+            updateApplyAllBadge();
+
+            // Animate card removal
+            card.style.opacity = '0';
+            card.style.transform = 'translateX(20px)';
+            setTimeout(() => card.remove(), 300);
+
+            showToast('Issue dismissed', 'success');
+
+        } catch (error) {
+            button.disabled = false;
+            button.querySelector('span').textContent = originalText;
+            showToast(error.message, 'error');
+        }
+    }
+
+    async function handleLLMFlag(key, currentTranslation, button) {
+        const card = button.closest('.llm-issue-card');
+        const originalText = button.querySelector('span').textContent;
+        button.disabled = true;
+        button.querySelector('span').textContent = 'Flagging...';
+
+        try {
+            const response = await fetch(`/api/review/${fileId}/${language}/${encodeURIComponent(key)}`, {
+                method: 'PUT',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    translation: currentTranslation,
+                    state: 'flagged',
+                }),
+            });
+
+            if (!response.ok) throw new Error('Failed to flag');
+
+            // Update stats (move from attention to flagged)
+            llmReviewState.cumulativeAttention--;
+            llmReviewState.cumulativeFlagged++;
+            document.getElementById('stats-attention').textContent = llmReviewState.cumulativeAttention;
+            document.getElementById('stats-flagged').textContent = llmReviewState.cumulativeFlagged;
+
+            // Remove from current issues
+            llmReviewState.currentIssues = llmReviewState.currentIssues.filter(i => i.key !== key);
+            updateApplyAllBadge();
+
+            // Update card styling to show flagged
+            card.classList.add('border-amber-500', 'bg-amber-900/20');
+            card.style.opacity = '0.6';
+
+            // Disable all buttons on the card
+            card.querySelectorAll('button').forEach(btn => btn.disabled = true);
+            button.querySelector('span').textContent = 'Flagged';
+
+            showToast('Flagged for review', 'success');
+
+        } catch (error) {
+            button.disabled = false;
+            button.querySelector('span').textContent = originalText;
+            showToast(error.message, 'error');
+        }
+    }
+
+    function updateApplyAllBadge() {
+        const applyAllSection = document.getElementById('apply-all-section');
+        const badge = document.getElementById('apply-all-badge');
+
+        if (llmReviewState.currentIssues.length > 0) {
+            applyAllSection.classList.remove('hidden');
+            badge.textContent = llmReviewState.currentIssues.length;
+        } else {
+            applyAllSection.classList.add('hidden');
+        }
+    }
+
+    // Apply All button
+    document.getElementById('apply-all-btn').addEventListener('click', async () => {
+        const btn = document.getElementById('apply-all-btn');
+        btn.disabled = true;
+        const originalHTML = btn.innerHTML;
+
+        const total = llmReviewState.currentIssues.length;
+        let applied = 0;
+        let failed = 0;
+
+        for (const issue of [...llmReviewState.currentIssues]) {
+            btn.innerHTML = `<span>Applying ${applied + 1}/${total}...</span>`;
+
+            try {
+                const response = await fetch(`/api/review/${fileId}/${language}/${encodeURIComponent(issue.key)}`, {
+                    method: 'PUT',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        translation: issue.suggested_fix,
+                        state: 'reviewed',
+                    }),
+                });
+
+                if (response.ok) {
+                    applied++;
+                    llmReviewState.cumulativeAttention--;
+                    llmReviewState.cumulativePassed++;
+
+                    // Remove the card
+                    const card = document.querySelector(`.llm-issue-card[data-key="${CSS.escape(issue.key)}"]`);
+                    if (card) {
+                        card.style.opacity = '0';
+                        card.style.transform = 'translateX(20px)';
+                    }
+                } else {
+                    failed++;
+                }
+            } catch (error) {
+                failed++;
+            }
+        }
+
+        // Update stats
+        document.getElementById('stats-passed').textContent = llmReviewState.cumulativePassed;
+        document.getElementById('stats-attention').textContent = llmReviewState.cumulativeAttention;
+
+        // Clear issues
+        llmReviewState.currentIssues = [];
+
+        // Update UI
+        btn.innerHTML = `<span>All Applied!</span>`;
+        document.getElementById('apply-all-badge').textContent = '0';
+
+        setTimeout(() => {
+            document.getElementById('apply-all-section').classList.add('hidden');
+            btn.disabled = false;
+            btn.innerHTML = originalHTML;
+
+            // Remove all cards with animation complete
+            document.querySelectorAll('.llm-issue-card').forEach(card => card.remove());
+
+            // Show no issues state
+            document.getElementById('llm-issues-list').classList.add('hidden');
+            document.getElementById('llm-no-issues').classList.remove('hidden');
+        }, 500);
+
+        // Reload translations
+        loadTranslations(currentFilter);
+
+        if (failed > 0) {
+            showToast(`Applied ${applied} suggestions, ${failed} failed`, 'warning');
+        } else {
+            showToast(`Successfully applied ${applied} suggestions`, 'success');
+        }
+    });
+
+    // Keyboard navigation for LLM Review overlay
+    document.addEventListener('keydown', (e) => {
+        // Only handle when overlay is visible
+        if (llmOverlay.classList.contains('hidden')) return;
+
+        // Escape to close
+        if (e.key === 'Escape') {
+            closeLLMReviewOverlay();
+            return;
+        }
+
+        // Only handle card navigation when there are cards
+        const cards = document.querySelectorAll('.llm-issue-card:not([style*="opacity: 0"])');
+        if (cards.length === 0) return;
+
+        // Get currently focused card
+        const focusedCard = document.querySelector('.llm-issue-card.ring-2');
+        let currentIndex = focusedCard ? Array.from(cards).indexOf(focusedCard) : -1;
+
+        // Tab / Shift+Tab to navigate between cards
+        if (e.key === 'Tab') {
+            e.preventDefault();
+            if (e.shiftKey) {
+                currentIndex = currentIndex <= 0 ? cards.length - 1 : currentIndex - 1;
+            } else {
+                currentIndex = currentIndex >= cards.length - 1 ? 0 : currentIndex + 1;
+            }
+
+            // Remove focus from previous card
+            cards.forEach(card => card.classList.remove('ring-2', 'ring-blue-500'));
+
+            // Focus new card
+            cards[currentIndex].classList.add('ring-2', 'ring-blue-500');
+            cards[currentIndex].scrollIntoView({ behavior: 'smooth', block: 'center' });
+            return;
+        }
+
+        // Only handle action keys if a card is focused
+        if (!focusedCard) return;
+
+        // Enter or A = Apply
+        if (e.key === 'Enter' || e.key === 'a' || e.key === 'A') {
+            const applyBtn = focusedCard.querySelector('.llm-apply-btn');
+            if (applyBtn && !applyBtn.disabled) {
+                e.preventDefault();
+                applyBtn.click();
+            }
+            return;
+        }
+
+        // D = Dismiss
+        if (e.key === 'd' || e.key === 'D') {
+            const dismissBtn = focusedCard.querySelector('.llm-dismiss-btn');
+            if (dismissBtn && !dismissBtn.disabled) {
+                e.preventDefault();
+                dismissBtn.click();
+            }
+            return;
+        }
+
+        // F = Flag
+        if (e.key === 'f' || e.key === 'F') {
+            const flagBtn = focusedCard.querySelector('.llm-flag-btn');
+            if (flagBtn && !flagBtn.disabled) {
+                e.preventDefault();
+                flagBtn.click();
+            }
+            return;
+        }
+    });
 
     // Add Language Modal
     const addLanguageModal = document.getElementById('add-language-modal');

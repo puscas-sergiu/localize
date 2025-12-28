@@ -49,6 +49,28 @@ class ReviewWithSuggestionsResult:
     suggestions: List[Dict[str, str]] = field(default_factory=list)  # [{"text": "...", "explanation": "..."}]
 
 
+@dataclass
+class BulkReviewItem:
+    """Single item result from bulk review."""
+
+    key: str
+    source: str
+    translation: str
+    status: str  # "pass" or "needs_review"
+    issues: List[str] = field(default_factory=list)
+    suggested_fix: Optional[str] = None
+
+
+@dataclass
+class BulkReviewResult:
+    """Result of bulk LLM review for multiple translations."""
+
+    total_reviewed: int
+    passed: int
+    needs_attention: int
+    items: List[BulkReviewItem] = field(default_factory=list)  # Only items needing attention
+
+
 class LLMReviewer:
     """Uses GPT to semantically review translations."""
 
@@ -108,8 +130,7 @@ class LLMReviewer:
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_prompt},
                 ],
-                temperature=self.temperature,
-                max_tokens=500,
+                max_completion_tokens=500,
                 response_format={"type": "json_object"},
             )
 
@@ -264,6 +285,7 @@ TRANSLATION ({lang_name}):
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_prompt},
                 ],
+                max_completion_tokens=1000,
                 response_format={"type": "json_object"},
             )
 
@@ -337,3 +359,157 @@ CURRENT TRANSLATION ({lang_name}):
         prompt += "\n\nProvide your review and suggestions as JSON."
 
         return prompt
+
+    def review_batch_bulk(
+        self,
+        translations: List[Dict[str, str]],
+        target_lang: str,
+        batch_size: int = 100,
+        progress_callback=None,
+    ) -> BulkReviewResult:
+        """
+        Review multiple translations efficiently in batches.
+
+        Sends batch_size translations per API call for efficient bulk review.
+        Returns only items that need attention with suggested fixes.
+
+        Args:
+            translations: List of dicts with 'key', 'source', 'translation' keys
+            target_lang: Target language code
+            batch_size: Number of translations per API call (default 100)
+            progress_callback: Optional callback(current_batch, total_batches, message)
+
+        Returns:
+            BulkReviewResult with aggregated stats and flagged items
+        """
+        if not translations:
+            return BulkReviewResult(
+                total_reviewed=0,
+                passed=0,
+                needs_attention=0,
+                items=[],
+            )
+
+        lang_name = self.LANGUAGE_NAMES.get(target_lang.lower(), target_lang)
+        all_flagged_items: List[BulkReviewItem] = []
+        total_passed = 0
+
+        # Process in batches
+        total_batches = (len(translations) + batch_size - 1) // batch_size
+
+        for batch_idx in range(total_batches):
+            start = batch_idx * batch_size
+            end = min(start + batch_size, len(translations))
+            batch = translations[start:end]
+
+            if progress_callback:
+                progress_callback(batch_idx + 1, total_batches, f"Reviewing batch {batch_idx + 1}/{total_batches}")
+
+            # Build batch request
+            batch_items = []
+            for i, item in enumerate(batch):
+                batch_items.append({
+                    "id": str(start + i),
+                    "key": item.get("key", ""),
+                    "source": item["source"],
+                    "translation": item["translation"],
+                })
+
+            try:
+                system_prompt = self._build_bulk_system_prompt(lang_name)
+                user_prompt = self._build_bulk_user_prompt(batch_items, lang_name)
+
+                response = self.client.chat.completions.create(
+                    model=self.model,
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": user_prompt},
+                    ],
+                    max_completion_tokens=8000,
+                    response_format={"type": "json_object"},
+                )
+
+                result_text = response.choices[0].message.content.strip()
+                result_data = json.loads(result_text)
+
+                # Parse results - only flagged items are returned
+                flagged = result_data.get("flagged", [])
+                batch_passed = len(batch) - len(flagged)
+                total_passed += batch_passed
+
+                # Convert to BulkReviewItem objects
+                for item in flagged:
+                    # Find original translation data
+                    item_id = item.get("id", "")
+                    original_idx = int(item_id) if item_id.isdigit() else 0
+                    original = translations[original_idx] if original_idx < len(translations) else {}
+
+                    all_flagged_items.append(BulkReviewItem(
+                        key=item.get("key", original.get("key", "")),
+                        source=original.get("source", ""),
+                        translation=original.get("translation", ""),
+                        status="needs_review",
+                        issues=item.get("issues", []),
+                        suggested_fix=item.get("suggested_fix"),
+                    ))
+
+            except Exception as e:
+                # On error, mark entire batch as needing attention
+                for item in batch:
+                    all_flagged_items.append(BulkReviewItem(
+                        key=item.get("key", ""),
+                        source=item.get("source", ""),
+                        translation=item.get("translation", ""),
+                        status="needs_review",
+                        issues=[f"Review failed: {str(e)}"],
+                        suggested_fix=None,
+                    ))
+
+        return BulkReviewResult(
+            total_reviewed=len(translations),
+            passed=total_passed,
+            needs_attention=len(all_flagged_items),
+            items=all_flagged_items,
+        )
+
+    def _build_bulk_system_prompt(self, lang_name: str) -> str:
+        """Build the system prompt for bulk review."""
+        return f"""You are an expert translator and quality reviewer for {lang_name} translations in a mobile app context.
+
+You will receive a JSON array of translations to review. Each item has: id, key, source (English), translation ({lang_name}).
+
+Your task:
+1. Review each translation for semantic accuracy and fluency
+2. Return ONLY translations that have issues (skip good translations to save space)
+3. For each flagged item, provide issues and a suggested fix
+
+IMPORTANT GUIDELINES:
+- Focus on meaning preservation - minor phrasing differences are OK
+- iOS format specifiers (%@, %d, %1$@, etc.) MUST be preserved exactly
+- Be strict about: wrong meaning, omissions, additions, grammar errors
+- Be lenient about: stylistic differences, slight phrasing variations
+
+RESPONSE FORMAT (JSON only):
+{{
+  "flagged": [
+    {{
+      "id": "<original id>",
+      "key": "<original key>",
+      "issues": ["issue 1", "issue 2"],
+      "suggested_fix": "<corrected translation>"
+    }}
+  ]
+}}
+
+If ALL translations are good, return: {{"flagged": []}}"""
+
+    def _build_bulk_user_prompt(
+        self,
+        batch_items: List[Dict[str, str]],
+        lang_name: str,
+    ) -> str:
+        """Build the user prompt for bulk review."""
+        request_obj = {"translations": batch_items}
+        return f"""Review these English to {lang_name} translations. Return only flagged items:
+
+{json.dumps(request_obj, indent=2, ensure_ascii=False)}"""

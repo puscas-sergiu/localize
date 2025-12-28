@@ -7,7 +7,8 @@ from dataclasses import dataclass, asdict
 from ...extraction.xcstrings_parser import XCStringsParser
 from ...extraction.xcstrings_writer import XCStringsWriter
 from ...translation.translator import HybridTranslator, TranslationStats
-from ...validation.llm_reviewer import LLMReviewer
+from ...validation.llm_reviewer import LLMReviewer, BulkReviewResult
+from ...config import config
 
 
 @dataclass
@@ -26,9 +27,10 @@ class VerificationJobResult:
     total_reviewed: int
     passed: int
     needs_attention: int
-    avg_semantic_score: float
-    avg_fluency_score: float
     issues: list[dict]
+    has_more: bool = False
+    total_unreviewed: int = 0
+    next_offset: int = 0
     error: Optional[str] = None
 
 
@@ -187,29 +189,32 @@ class TranslationService:
         self,
         file_content: str,
         language: str,
-        review_all: bool = False,
-        limit: Optional[int] = None,
+        offset: int = 0,
         progress_callback: Optional[Callable] = None,
     ) -> VerificationJobResult:
         """
         Verify translations using LLM semantic review.
 
+        Reviews all unreviewed translations (any status except "reviewed")
+        in fixed batches of 100.
+
         Args:
             file_content: JSON content of the .xcstrings file
             language: Language code to verify
-            review_all: Review all translations, not just needs_review
-            limit: Maximum number of translations to review
+            offset: Starting offset for pagination (skip this many unreviewed items)
             progress_callback: Async callback(current, total, message, language)
 
         Returns:
-            VerificationJobResult
+            VerificationJobResult with batch info (has_more, total_unreviewed, next_offset)
         """
+        BATCH_SIZE = 100  # Fixed batch size
+
         try:
             # Parse the file
             xcstrings = self.parser.parse_string(file_content)
 
-            # Collect translations to review
-            translations_to_review = []
+            # Collect ALL unreviewed translations (any status except "reviewed")
+            all_unreviewed = []
             for key, entry in xcstrings.strings.items():
                 if not entry.has_translation(language):
                     continue
@@ -222,13 +227,21 @@ class TranslationService:
                 translation = loc.string_unit.value
                 source = entry.get_source_value(xcstrings.source_language)
 
-                if review_all or state == "needs_review":
-                    translations_to_review.append({
+                # Include all translations except "reviewed"
+                if state != "reviewed":
+                    all_unreviewed.append({
                         "key": key,
                         "source": source,
                         "translation": translation,
                         "state": state,
                     })
+
+            total_unreviewed = len(all_unreviewed)
+
+            # Apply offset and get batch of 100
+            translations_to_review = all_unreviewed[offset:offset + BATCH_SIZE]
+            has_more = (offset + BATCH_SIZE) < total_unreviewed
+            next_offset = offset + len(translations_to_review)
 
             if not translations_to_review:
                 return VerificationJobResult(
@@ -236,89 +249,83 @@ class TranslationService:
                     total_reviewed=0,
                     passed=0,
                     needs_attention=0,
-                    avg_semantic_score=0,
-                    avg_fluency_score=0,
                     issues=[],
+                    has_more=False,
+                    total_unreviewed=total_unreviewed,
+                    next_offset=offset,
                 )
-
-            # Apply limit
-            if limit:
-                translations_to_review = translations_to_review[:limit]
 
             # Create reviewer
             reviewer = LLMReviewer()
+            batch_size = config.llm_bulk_review_batch_size
 
-            # Create sync progress callback
+            # Create sync progress callback for bulk review
             progress_queue = asyncio.Queue()
 
-            def sync_progress(current: int, total: int, key: str):
+            def sync_bulk_progress(current_batch: int, total_batches: int, message: str):
                 try:
                     loop = asyncio.get_event_loop()
                     if loop.is_running():
                         asyncio.run_coroutine_threadsafe(
-                            progress_queue.put((current, total, key)),
+                            progress_queue.put((current_batch, total_batches, message)),
                             loop
                         )
                 except Exception:
                     pass
 
-            # Run review in thread pool
-            async def run_review():
+            # Run bulk review in thread pool
+            async def run_bulk_review():
                 return await asyncio.to_thread(
-                    reviewer.review_batch,
+                    reviewer.review_batch_bulk,
                     translations_to_review,
                     language,
-                    sync_progress,
+                    batch_size,
+                    sync_bulk_progress,
                 )
 
             # Start review task
-            review_task = asyncio.create_task(run_review())
+            review_task = asyncio.create_task(run_bulk_review())
 
             # Process progress updates
             while not review_task.done():
                 try:
-                    current, total, key = await asyncio.wait_for(
+                    current_batch, total_batches, message = await asyncio.wait_for(
                         progress_queue.get(),
                         timeout=0.5
                     )
                     if progress_callback:
-                        await progress_callback(current, total, f"Reviewing: {key}", language)
+                        await progress_callback(
+                            current_batch,
+                            total_batches,
+                            message,
+                            language
+                        )
                 except asyncio.TimeoutError:
                     continue
 
-            # Get results
-            results = await review_task
+            # Get bulk review results
+            bulk_result: BulkReviewResult = await review_task
 
-            # Calculate stats
-            passed = [r for r in results if r.passed]
-            needs_attention = [r for r in results if r.needs_attention]
-
-            total = len(results)
-            avg_semantic = sum(r.semantic_score for r in results) / total if total else 0
-            avg_fluency = sum(r.fluency_score for r in results) / total if total else 0
-
-            # Collect issues
+            # Convert BulkReviewResult to VerificationJobResult format
             issues = []
-            for r in needs_attention:
+            for item in bulk_result.items:
                 issues.append({
-                    "key": r.key,
-                    "source": r.source,
-                    "translation": r.translation,
-                    "semantic_score": r.semantic_score,
-                    "fluency_score": r.fluency_score,
-                    "overall_score": r.overall_score,
-                    "issues": r.issues,
-                    "suggested_fix": r.suggested_fix,
+                    "key": item.key,
+                    "source": item.source,
+                    "translation": item.translation,
+                    "issues": item.issues,
+                    "suggested_fix": item.suggested_fix,
                 })
 
             return VerificationJobResult(
                 success=True,
-                total_reviewed=total,
-                passed=len(passed),
-                needs_attention=len(needs_attention),
-                avg_semantic_score=avg_semantic,
-                avg_fluency_score=avg_fluency,
+                total_reviewed=bulk_result.total_reviewed,
+                passed=bulk_result.passed,
+                needs_attention=bulk_result.needs_attention,
                 issues=issues,
+                has_more=has_more,
+                total_unreviewed=total_unreviewed,
+                next_offset=next_offset,
             )
 
         except Exception as e:
@@ -327,8 +334,6 @@ class TranslationService:
                 total_reviewed=0,
                 passed=0,
                 needs_attention=0,
-                avg_semantic_score=0,
-                avg_fluency_score=0,
                 issues=[],
                 error=str(e),
             )

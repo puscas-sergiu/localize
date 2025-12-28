@@ -9,7 +9,7 @@ class StringUnit:
     """Represents a single string translation unit."""
 
     value: str
-    state: str = "new"  # new, translated, needs_review, stale
+    state: str = "new"  # new, translated, needs_review, reviewed, flagged, stale
 
 
 @dataclass

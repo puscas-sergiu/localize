@@ -20,8 +20,7 @@ class TranslateRequest(BaseModel):
 
 class VerifyRequest(BaseModel):
     language: str
-    review_all: bool = False
-    limit: Optional[int] = None
+    offset: int = 0  # For batch pagination
 
 
 class UpdateTranslationRequest(BaseModel):
@@ -224,10 +223,12 @@ async def start_translation(request: Request, file_id: str, body: TranslateReque
     )
 
     # Start background translation
+    direct_service = request.app.state.direct_file_service
     asyncio.create_task(
         _run_translation_job(
             file_storage,
             job_manager,
+            direct_service,
             job.job_id,
             file_id,
             body.languages,
@@ -241,6 +242,7 @@ async def start_translation(request: Request, file_id: str, body: TranslateReque
 async def _run_translation_job(
     file_storage,
     job_manager,
+    direct_service,
     job_id: str,
     file_id: str,
     languages: list[str],
@@ -268,6 +270,12 @@ async def _run_translation_job(
         if result.success:
             # Update file with translations
             file_storage.update_content(file_id, output.encode("utf-8"))
+
+            # Auto-apply if using direct file mode
+            config = direct_service.get_config()
+            if config and config.file_id == file_id:
+                direct_service.apply()
+
             job_manager.set_completed(job_id, {
                 "languages_processed": result.languages_processed,
                 "stats_by_language": result.stats_by_language,
@@ -354,6 +362,12 @@ async def update_translation(
 
     file_storage.update_content(file_id, updated_content.encode("utf-8"))
 
+    # Auto-apply if using direct file mode
+    direct_service = request.app.state.direct_file_service
+    config = direct_service.get_config()
+    if config and config.file_id == file_id:
+        direct_service.apply()
+
     return {"status": "updated", "key": key}
 
 
@@ -398,6 +412,12 @@ async def translate_single_string(
     )
 
     file_storage.update_content(file_id, updated_content.encode("utf-8"))
+
+    # Auto-apply if using direct file mode
+    direct_service = request.app.state.direct_file_service
+    config = direct_service.get_config()
+    if config and config.file_id == file_id:
+        direct_service.apply()
 
     return {
         "status": "translated",
@@ -475,10 +495,12 @@ async def translate_all_untranslated(
     )
 
     # Start background translation for single language
+    direct_service = request.app.state.direct_file_service
     asyncio.create_task(
         _run_translation_job(
             file_storage,
             job_manager,
+            direct_service,
             job.job_id,
             file_id,
             [language],
@@ -514,8 +536,7 @@ async def start_verification(request: Request, file_id: str, body: VerifyRequest
             job.job_id,
             file_id,
             body.language,
-            body.review_all,
-            body.limit,
+            body.offset,
         )
     )
 
@@ -528,8 +549,7 @@ async def _run_verification_job(
     job_id: str,
     file_id: str,
     language: str,
-    review_all: bool,
-    limit: Optional[int],
+    offset: int,
 ):
     """Run verification job in background."""
     job_manager.set_running(job_id)
@@ -544,8 +564,7 @@ async def _run_verification_job(
         result = await service.verify_translations(
             content,
             language,
-            review_all,
-            limit,
+            offset,
             progress_callback,
         )
 
@@ -554,18 +573,20 @@ async def _run_verification_job(
                 "total_reviewed": result.total_reviewed,
                 "passed": result.passed,
                 "needs_attention": result.needs_attention,
-                "avg_semantic_score": result.avg_semantic_score,
-                "avg_fluency_score": result.avg_fluency_score,
                 "issues": result.issues,
+                "has_more": result.has_more,
+                "total_unreviewed": result.total_unreviewed,
+                "next_offset": result.next_offset,
             })
             await job_manager.send_complete(job_id, {
                 "success": True,
                 "total_reviewed": result.total_reviewed,
                 "passed": result.passed,
                 "needs_attention": result.needs_attention,
-                "avg_semantic_score": result.avg_semantic_score,
-                "avg_fluency_score": result.avg_fluency_score,
                 "issues": result.issues,
+                "has_more": result.has_more,
+                "total_unreviewed": result.total_unreviewed,
+                "next_offset": result.next_offset,
             })
         else:
             job_manager.set_failed(job_id, result.error)

@@ -33,6 +33,10 @@ class Config:
     openai_batch_size: int = 20
     openai_batch_max_tokens: int = 4000
 
+    # Bulk LLM review settings
+    llm_bulk_review_batch_size: int = 250
+    llm_bulk_review_max_tokens: int = 8000
+
     # DeepL language mapping
     DEEPL_LANGUAGE_MAP: dict = field(default_factory=lambda: {
         "de": "DE",
