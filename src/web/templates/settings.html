@@ -167,24 +167,12 @@
                         </div>
                     </div>
                     <div class="flex items-center space-x-2">
-                        <a
-                            href="/stats/{{ file.file_id }}"
-                            class="bg-gray-700 text-gray-300 px-3 py-1.5 rounded text-sm hover:bg-gray-600 transition-colors"
-                        >
-                            Stats
-                        </a>
                         <button
                             onclick="openReview('{{ file.file_id }}')"
-                            class="bg-blue-600 text-white px-3 py-1.5 rounded text-sm hover:bg-blue-700 transition-colors"
-                        >
-                            Review
-                        </button>
-                        <a
-                            href="/translate/{{ file.file_id }}"
                             class="bg-emerald-600 text-white px-3 py-1.5 rounded text-sm hover:bg-emerald-700 transition-colors"
                         >
-                            Translate
-                        </a>
+                            Open
+                        </button>
                         <a
                             href="/api/files/{{ file.file_id }}/download"
                             class="bg-gray-700 text-gray-300 px-3 py-1.5 rounded text-sm hover:bg-gray-600 transition-colors"

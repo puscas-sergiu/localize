@@ -47,14 +47,160 @@
 
     <!-- Main Content Area -->
     <div class="flex-1 flex flex-col overflow-hidden">
-        <!-- Header -->
+        <!-- Header with Step Indicator -->
         <div class="px-6 py-4 border-b border-gray-700 bg-gray-800">
-            <div class="flex items-center justify-between">
+            <div class="flex items-center justify-between mb-4">
                 <div>
                     <h1 class="text-xl font-bold text-white">Review <span id="lang-title">{{ language|upper }}</span> Translations</h1>
                     <p class="text-sm text-gray-400 mt-1">{{ metadata.original_name }}</p>
                 </div>
-                <div class="flex space-x-3">
+                <!-- More Menu (Download, View Last Results) -->
+                <div class="relative">
+                    <button id="more-menu-btn" class="bg-gray-700 text-gray-300 px-3 py-2 rounded-lg font-medium hover:bg-gray-600 transition-colors flex items-center space-x-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"></path>
+                        </svg>
+                        <span>More</span>
+                    </button>
+                    <div id="more-menu-dropdown" class="hidden absolute right-0 mt-2 w-56 bg-gray-800 border border-gray-700 rounded-lg shadow-xl z-20">
+                        <div class="py-1">
+                            <a href="/api/files/{{ file_id }}/download" class="flex items-center px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 hover:text-white">
+                                <svg class="w-4 h-4 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+                                </svg>
+                                Download .xcstrings
+                            </a>
+                            <button id="view-last-results-menu-btn" class="hidden w-full flex items-center px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 hover:text-white text-left">
+                                <svg class="w-4 h-4 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                                </svg>
+                                View Last LLM Results
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Workflow Step Indicator -->
+            <div id="workflow-steps" class="flex items-center justify-center space-x-2">
+                <!-- Step 1: Setup -->
+                <div class="flex items-center">
+                    <div id="step-setup" class="flex items-center space-x-2 px-3 py-1.5 rounded-full bg-emerald-600/20 border border-emerald-600/50">
+                        <div class="w-5 h-5 rounded-full bg-emerald-600 flex items-center justify-center">
+                            <svg class="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path>
+                            </svg>
+                        </div>
+                        <span class="text-emerald-400 text-sm font-medium">Setup</span>
+                    </div>
+                </div>
+                <div class="w-8 h-0.5 bg-emerald-600"></div>
+
+                <!-- Step 2: Translate -->
+                <div class="flex items-center">
+                    <div id="step-translate" class="flex items-center space-x-2 px-3 py-1.5 rounded-full bg-gray-700/50 border border-gray-600">
+                        <div class="w-5 h-5 rounded-full bg-gray-600 flex items-center justify-center">
+                            <span class="text-white text-xs font-bold">2</span>
+                        </div>
+                        <span class="text-gray-400 text-sm font-medium">Translate</span>
+                        <span id="step-translate-count" class="hidden text-xs text-gray-500"></span>
+                    </div>
+                </div>
+                <div id="connector-translate" class="w-8 h-0.5 bg-gray-600"></div>
+
+                <!-- Step 3: Verify -->
+                <div class="flex items-center">
+                    <div id="step-verify" class="flex items-center space-x-2 px-3 py-1.5 rounded-full bg-gray-700/50 border border-gray-600">
+                        <div class="w-5 h-5 rounded-full bg-gray-600 flex items-center justify-center">
+                            <span class="text-white text-xs font-bold">3</span>
+                        </div>
+                        <span class="text-gray-400 text-sm font-medium">Verify</span>
+                    </div>
+                </div>
+                <div id="connector-verify" class="w-8 h-0.5 bg-gray-600"></div>
+
+                <!-- Step 4: Review -->
+                <div class="flex items-center">
+                    <div id="step-review" class="flex items-center space-x-2 px-3 py-1.5 rounded-full bg-gray-700/50 border border-gray-600">
+                        <div class="w-5 h-5 rounded-full bg-gray-600 flex items-center justify-center">
+                            <span class="text-white text-xs font-bold">4</span>
+                        </div>
+                        <span class="text-gray-400 text-sm font-medium">Review</span>
+                        <span id="step-review-count" class="hidden text-xs text-gray-500"></span>
+                    </div>
+                </div>
+                <div id="connector-review" class="w-8 h-0.5 bg-gray-600"></div>
+
+                <!-- Step 5: Export -->
+                <div class="flex items-center">
+                    <div id="step-export" class="flex items-center space-x-2 px-3 py-1.5 rounded-full bg-gray-700/50 border border-gray-600">
+                        <div class="w-5 h-5 rounded-full bg-gray-600 flex items-center justify-center">
+                            <span class="text-white text-xs font-bold">5</span>
+                        </div>
+                        <span class="text-gray-400 text-sm font-medium">Export</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab Navigation -->
+        <div class="px-6 py-0 bg-gray-800 border-b border-gray-700">
+            <div class="flex items-center justify-between">
+                <!-- Tab Buttons -->
+                <nav class="flex" role="tablist">
+                    <button
+                        role="tab"
+                        aria-selected="true"
+                        id="tab-untranslated"
+                        class="tab-btn px-5 py-3 text-sm font-medium border-b-2 transition-colors text-emerald-400 border-emerald-500 bg-emerald-900/10"
+                        data-tab="untranslated"
+                    >
+                        <span class="flex items-center space-x-2">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                            </svg>
+                            <span>Untranslated</span>
+                            <span id="badge-untranslated" class="bg-emerald-600 text-white text-xs px-2 py-0.5 rounded-full font-bold">0</span>
+                        </span>
+                    </button>
+
+                    <button
+                        role="tab"
+                        aria-selected="false"
+                        id="tab-needs-review"
+                        class="tab-btn px-5 py-3 text-sm font-medium border-b-2 transition-colors text-gray-400 border-transparent hover:text-gray-300"
+                        data-tab="needs_review"
+                    >
+                        <span class="flex items-center space-x-2">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                            </svg>
+                            <span>Needs Review</span>
+                            <span id="badge-needs-review" class="hidden bg-yellow-600 text-white text-xs px-2 py-0.5 rounded-full font-bold">0</span>
+                        </span>
+                    </button>
+
+                    <button
+                        role="tab"
+                        aria-selected="false"
+                        id="tab-all"
+                        class="tab-btn px-5 py-3 text-sm font-medium border-b-2 transition-colors text-gray-400 border-transparent hover:text-gray-300"
+                        data-tab="all"
+                    >
+                        <span class="flex items-center space-x-2">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"></path>
+                            </svg>
+                            <span>All Strings</span>
+                            <span id="badge-all" class="text-gray-500 text-xs">(0)</span>
+                        </span>
+                    </button>
+                </nav>
+
+                <!-- Tab-Contextual Actions -->
+                <div id="tab-actions" class="flex items-center space-x-3 py-2">
+                    <!-- Actions will be updated based on active tab -->
                     <button
                         id="translate-all-btn"
                         class="bg-emerald-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-emerald-700 transition-colors flex items-center space-x-2"
@@ -62,13 +208,16 @@
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129"></path>
                         </svg>
-                        <span>Translate All Untranslated</span>
+                        <span>Translate All</span>
                     </button>
                     <button
                         id="verify-btn"
-                        class="bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors"
+                        class="hidden bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center space-x-2"
                     >
-                        Run LLM Verification
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path>
+                        </svg>
+                        <span>Run LLM Check</span>
                     </button>
                     <button
                         id="view-last-results-btn"
@@ -78,54 +227,36 @@
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
                         </svg>
-                        <span>View Last Results</span>
+                        <span>View Results</span>
                     </button>
-                    <a
-                        href="/api/files/{{ file_id }}/download"
-                        class="bg-gray-700 text-gray-300 px-4 py-2 rounded-lg font-medium hover:bg-gray-600 transition-colors"
-                    >
-                        Download
-                    </a>
+                    <!-- Search (shown on All tab) -->
+                    <div id="search-container" class="hidden">
+                        <div class="relative">
+                            <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                            </svg>
+                            <input type="text"
+                                   id="search-input"
+                                   placeholder="Search..."
+                                   class="bg-gray-700 border border-gray-600 rounded-lg pl-10 pr-4 py-2 text-white text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 w-64"
+                                   oninput="handleSearch(this.value)">
+                        </div>
+                    </div>
+                    <!-- State filter dropdown (shown on All tab) -->
+                    <select id="state-filter-select" class="hidden bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white text-sm focus:ring-2 focus:ring-emerald-500">
+                        <option value="">All states</option>
+                        <option value="not_translated">Untranslated</option>
+                        <option value="translated">Translated</option>
+                        <option value="needs_review">Needs Review</option>
+                        <option value="reviewed">Reviewed</option>
+                        <option value="flagged">Flagged</option>
+                    </select>
                 </div>
             </div>
         </div>
 
-        <!-- Filter Bar -->
-        <div class="px-6 py-3 bg-gray-750 border-b border-gray-700 flex items-center justify-between">
-            <div class="flex items-center space-x-4">
-                <span class="text-gray-400 text-sm">Filter:</span>
-                <label class="flex items-center space-x-2 cursor-pointer">
-                    <input type="radio" name="state-filter" value="" checked class="text-emerald-500 bg-gray-600 border-gray-500 focus:ring-emerald-500">
-                    <span class="text-white text-sm">All</span>
-                </label>
-                <label class="flex items-center space-x-2 cursor-pointer">
-                    <input type="radio" name="state-filter" value="translated" class="text-emerald-500 bg-gray-600 border-gray-500 focus:ring-emerald-500">
-                    <span class="text-white text-sm">Translated</span>
-                </label>
-                <label class="flex items-center space-x-2 cursor-pointer">
-                    <input type="radio" name="state-filter" value="needs_review" class="text-emerald-500 bg-gray-600 border-gray-500 focus:ring-emerald-500">
-                    <span class="text-white text-sm">Needs Review</span>
-                </label>
-                <label class="flex items-center space-x-2 cursor-pointer">
-                    <input type="radio" name="state-filter" value="not_translated" class="text-emerald-500 bg-gray-600 border-gray-500 focus:ring-emerald-500">
-                    <span class="text-white text-sm">Not Translated</span>
-                </label>
-                <label class="flex items-center space-x-2 cursor-pointer">
-                    <input type="radio" name="state-filter" value="reviewed" class="text-emerald-500 bg-gray-600 border-gray-500 focus:ring-emerald-500">
-                    <span class="text-white text-sm">Reviewed</span>
-                </label>
-                <label class="flex items-center space-x-2 cursor-pointer">
-                    <input type="radio" name="state-filter" value="flagged" class="text-emerald-500 bg-gray-600 border-gray-500 focus:ring-emerald-500">
-                    <span class="text-white text-sm">Flagged</span>
-                </label>
-                <div class="flex items-center ml-4 pl-4 border-l border-gray-600">
-                    <input type="text"
-                           id="search-input"
-                           placeholder="Search..."
-                           class="bg-gray-700 border border-gray-600 rounded px-3 py-1 text-white text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 w-48"
-                           oninput="handleSearch(this.value)">
-                </div>
-            </div>
+        <!-- Translation Count -->
+        <div class="px-6 py-2 bg-gray-750 border-b border-gray-700 flex items-center justify-end">
             <span id="translation-count" class="text-gray-400 text-sm"></span>
         </div>
 
@@ -528,6 +659,15 @@
     let translations = [];
     let currentFilter = '';
     let searchQuery = '';
+    let activeTab = 'untranslated';
+
+    // Tab counts for badges and step indicator
+    let tabCounts = {
+        untranslated: 0,
+        needs_review: 0,
+        flagged: 0,
+        total: 0
+    };
 
     function handleSearch(query) {
         searchQuery = query.toLowerCase().trim();
@@ -614,9 +754,50 @@
             // Update header badge with untranslated count
             window.updateUntranslatedBadge(fileId);
 
+            // Also fetch all translations to calculate tab counts (if not already loading all)
+            if (stateFilter !== '') {
+                fetchTabCounts();
+            } else {
+                // Calculate counts from current data
+                calculateTabCounts(translations);
+            }
+
         } catch (error) {
             showToast(error.message, 'error');
         }
+    }
+
+    // Fetch all translations to calculate tab badge counts
+    async function fetchTabCounts() {
+        try {
+            const response = await fetch(`/api/review/${fileId}/${language}`);
+            if (!response.ok) return;
+
+            const data = await response.json();
+            calculateTabCounts(data.translations);
+        } catch (error) {
+            console.error('Failed to fetch tab counts:', error);
+        }
+    }
+
+    // Calculate tab counts from translations array
+    function calculateTabCounts(allTranslations) {
+        tabCounts.untranslated = 0;
+        tabCounts.needs_review = 0;
+        tabCounts.flagged = 0;
+        tabCounts.total = allTranslations.length;
+
+        for (const t of allTranslations) {
+            if (t.state === 'not_translated' || !t.translation) {
+                tabCounts.untranslated++;
+            } else if (t.state === 'needs_review') {
+                tabCounts.needs_review++;
+            } else if (t.state === 'flagged') {
+                tabCounts.flagged++;
+            }
+        }
+
+        updateTabBadges();
     }
 
     function renderTranslations() {
@@ -1244,12 +1425,7 @@
         document.getElementById('translate-modal').classList.add('hidden');
     });
 
-    // Filter change
-    document.querySelectorAll('input[name="state-filter"]').forEach(radio => {
-        radio.addEventListener('change', (e) => {
-            loadTranslations(e.target.value);
-        });
-    });
+    // Note: Filter radio buttons removed - now using tab navigation
 
     // ==========================================
     // LLM Review Full-Screen Overlay
@@ -2108,19 +2284,240 @@
         }
     });
 
+    // ==========================================
+    // Tab Management
+    // ==========================================
+
+    function switchTab(tabId) {
+        activeTab = tabId;
+
+        // Update tab button styles
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            const isActive = btn.dataset.tab === tabId;
+            btn.setAttribute('aria-selected', isActive);
+
+            if (isActive) {
+                btn.classList.remove('text-gray-400', 'border-transparent', 'hover:text-gray-300');
+                if (tabId === 'untranslated') {
+                    btn.classList.add('text-emerald-400', 'border-emerald-500', 'bg-emerald-900/10');
+                } else if (tabId === 'needs_review') {
+                    btn.classList.add('text-yellow-400', 'border-yellow-500', 'bg-yellow-900/10');
+                } else {
+                    btn.classList.add('text-blue-400', 'border-blue-500', 'bg-blue-900/10');
+                }
+            } else {
+                btn.classList.remove('text-emerald-400', 'border-emerald-500', 'bg-emerald-900/10',
+                                     'text-yellow-400', 'border-yellow-500', 'bg-yellow-900/10',
+                                     'text-blue-400', 'border-blue-500', 'bg-blue-900/10');
+                btn.classList.add('text-gray-400', 'border-transparent', 'hover:text-gray-300');
+            }
+        });
+
+        // Update contextual actions visibility
+        updateTabActions(tabId);
+
+        // Load translations with appropriate filter
+        let filter = '';
+        if (tabId === 'untranslated') {
+            filter = 'not_translated';
+        } else if (tabId === 'needs_review') {
+            filter = 'needs_review';
+        }
+        // 'all' tab uses empty filter
+
+        loadTranslations(filter);
+
+        // Update URL for bookmarking
+        const url = new URL(window.location);
+        url.searchParams.set('tab', tabId);
+        history.replaceState({}, '', url);
+    }
+
+    function updateTabActions(tabId) {
+        const translateAllBtn = document.getElementById('translate-all-btn');
+        const verifyBtn = document.getElementById('verify-btn');
+        const viewResultsBtn = document.getElementById('view-last-results-btn');
+        const searchContainer = document.getElementById('search-container');
+        const stateFilterSelect = document.getElementById('state-filter-select');
+
+        // Hide all first
+        translateAllBtn.classList.add('hidden');
+        verifyBtn.classList.add('hidden');
+        searchContainer.classList.add('hidden');
+        stateFilterSelect.classList.add('hidden');
+
+        if (tabId === 'untranslated') {
+            translateAllBtn.classList.remove('hidden');
+        } else if (tabId === 'needs_review') {
+            verifyBtn.classList.remove('hidden');
+            // Show View Results if we have last results
+            if (llmReviewState.accumulatedIssues.length > 0) {
+                viewResultsBtn.classList.remove('hidden');
+            }
+        } else if (tabId === 'all') {
+            searchContainer.classList.remove('hidden');
+            stateFilterSelect.classList.remove('hidden');
+        }
+    }
+
+    function updateTabBadges() {
+        // Update badge counts
+        document.getElementById('badge-untranslated').textContent = tabCounts.untranslated;
+        document.getElementById('badge-all').textContent = `(${tabCounts.total})`;
+
+        const needsReviewBadge = document.getElementById('badge-needs-review');
+        const needsReviewCount = tabCounts.needs_review + tabCounts.flagged;
+        needsReviewBadge.textContent = needsReviewCount;
+        if (needsReviewCount > 0) {
+            needsReviewBadge.classList.remove('hidden');
+        } else {
+            needsReviewBadge.classList.add('hidden');
+        }
+
+        // Update step indicator counts
+        const translateCount = document.getElementById('step-translate-count');
+        if (tabCounts.untranslated > 0) {
+            translateCount.textContent = `(${tabCounts.untranslated})`;
+            translateCount.classList.remove('hidden');
+        } else {
+            translateCount.classList.add('hidden');
+        }
+
+        const reviewCount = document.getElementById('step-review-count');
+        if (needsReviewCount > 0) {
+            reviewCount.textContent = `(${needsReviewCount})`;
+            reviewCount.classList.remove('hidden');
+        } else {
+            reviewCount.classList.add('hidden');
+        }
+
+        // Update step indicator styles based on progress
+        updateStepIndicator();
+    }
+
+    function updateStepIndicator() {
+        const stepTranslate = document.getElementById('step-translate');
+        const stepVerify = document.getElementById('step-verify');
+        const stepReview = document.getElementById('step-review');
+        const stepExport = document.getElementById('step-export');
+        const connectorTranslate = document.getElementById('connector-translate');
+        const connectorVerify = document.getElementById('connector-verify');
+        const connectorReview = document.getElementById('connector-review');
+
+        // Translate step: complete if no untranslated, active if some untranslated
+        if (tabCounts.untranslated === 0 && tabCounts.total > 0) {
+            setStepComplete(stepTranslate);
+            connectorTranslate.classList.remove('bg-gray-600');
+            connectorTranslate.classList.add('bg-emerald-600');
+        } else if (tabCounts.untranslated > 0) {
+            setStepActive(stepTranslate);
+        }
+
+        // Verify step: active after translate complete
+        if (tabCounts.untranslated === 0 && tabCounts.total > 0) {
+            const needsReviewCount = tabCounts.needs_review + tabCounts.flagged;
+            if (needsReviewCount === 0) {
+                setStepComplete(stepVerify);
+                connectorVerify.classList.remove('bg-gray-600');
+                connectorVerify.classList.add('bg-emerald-600');
+            } else {
+                setStepActive(stepVerify);
+            }
+        }
+
+        // Review step: active if there are items needing review
+        const needsReviewCount = tabCounts.needs_review + tabCounts.flagged;
+        if (needsReviewCount > 0) {
+            setStepActive(stepReview);
+        } else if (tabCounts.untranslated === 0 && tabCounts.total > 0) {
+            setStepComplete(stepReview);
+            connectorReview.classList.remove('bg-gray-600');
+            connectorReview.classList.add('bg-emerald-600');
+        }
+
+        // Export step: ready when all translations are done
+        if (tabCounts.untranslated === 0 && needsReviewCount === 0 && tabCounts.total > 0) {
+            setStepReady(stepExport);
+        }
+    }
+
+    function setStepComplete(stepEl) {
+        stepEl.classList.remove('bg-gray-700/50', 'border-gray-600');
+        stepEl.classList.add('bg-emerald-600/20', 'border-emerald-600/50');
+        const circle = stepEl.querySelector('div');
+        circle.classList.remove('bg-gray-600');
+        circle.classList.add('bg-emerald-600');
+        circle.innerHTML = '<svg class="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg>';
+        const label = stepEl.querySelector('span');
+        label.classList.remove('text-gray-400');
+        label.classList.add('text-emerald-400');
+    }
+
+    function setStepActive(stepEl) {
+        stepEl.classList.remove('bg-gray-700/50', 'border-gray-600');
+        stepEl.classList.add('bg-blue-600/20', 'border-blue-600/50');
+        const circle = stepEl.querySelector('div');
+        circle.classList.remove('bg-gray-600');
+        circle.classList.add('bg-blue-600');
+        const label = stepEl.querySelector('span');
+        label.classList.remove('text-gray-400');
+        label.classList.add('text-blue-400');
+    }
+
+    function setStepReady(stepEl) {
+        stepEl.classList.remove('bg-gray-700/50', 'border-gray-600');
+        stepEl.classList.add('bg-emerald-600/20', 'border-emerald-600/50');
+        const circle = stepEl.querySelector('div');
+        circle.classList.remove('bg-gray-600');
+        circle.classList.add('bg-emerald-600');
+        const label = stepEl.querySelector('span');
+        label.classList.remove('text-gray-400');
+        label.classList.add('text-emerald-400');
+    }
+
+    // Setup tab click handlers
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            switchTab(btn.dataset.tab);
+        });
+    });
+
+    // More menu dropdown toggle
+    document.getElementById('more-menu-btn').addEventListener('click', (e) => {
+        e.stopPropagation();
+        const dropdown = document.getElementById('more-menu-dropdown');
+        dropdown.classList.toggle('hidden');
+    });
+
+    // Close dropdown when clicking outside
+    document.addEventListener('click', () => {
+        document.getElementById('more-menu-dropdown').classList.add('hidden');
+    });
+
+    // State filter select handler (All tab)
+    document.getElementById('state-filter-select').addEventListener('change', (e) => {
+        loadTranslations(e.target.value);
+    });
+
+    // ==========================================
     // Initialize
-    // Parse URL params for initial filter (e.g., ?filter=not_translated from badge link)
+    // ==========================================
+
+    // Parse URL params for initial tab
     const urlParams = new URLSearchParams(window.location.search);
+    const initialTab = urlParams.get('tab') || 'untranslated';
     const initialFilter = urlParams.get('filter') || '';
 
-    // Update radio button to match initial filter
-    if (initialFilter) {
-        const radio = document.querySelector(`input[name="state-filter"][value="${initialFilter}"]`);
-        if (radio) radio.checked = true;
+    // If there's a filter param, switch to All tab
+    if (initialFilter && !urlParams.has('tab')) {
+        switchTab('all');
+        document.getElementById('state-filter-select').value = initialFilter;
+        loadTranslations(initialFilter);
+    } else {
+        switchTab(initialTab);
     }
 
     loadLanguageSidebar();
-    loadTranslations(initialFilter);
 </script>
 {% endif %}
 {% endblock %}

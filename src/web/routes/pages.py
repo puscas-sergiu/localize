@@ -88,54 +88,16 @@ async def review_language(request: Request, language: str):
     )
 
 
-@router.get("/stats", response_class=HTMLResponse)
+@router.get("/stats")
 async def stats_page_simple(request: Request):
-    """Statistics page using configured file."""
-    templates = request.app.state.templates
-    direct_service = request.app.state.direct_file_service
-    file_storage = request.app.state.file_storage
-
-    config = direct_service.get_config()
-    if not config:
-        return RedirectResponse(url="/settings", status_code=302)
-
-    metadata = file_storage.get_metadata(config.file_id)
-    if not metadata:
-        return RedirectResponse(url="/settings", status_code=302)
-
-    return templates.TemplateResponse(
-        "stats.html",
-        {
-            "request": request,
-            "file_id": config.file_id,
-            "metadata": metadata,
-        }
-    )
+    """Statistics page - redirects to dashboard (stats integrated into dashboard)."""
+    return RedirectResponse(url="/", status_code=302)
 
 
-@router.get("/translate", response_class=HTMLResponse)
+@router.get("/translate")
 async def translate_page_simple(request: Request):
-    """Translation page using configured file."""
-    templates = request.app.state.templates
-    direct_service = request.app.state.direct_file_service
-    file_storage = request.app.state.file_storage
-
-    config = direct_service.get_config()
-    if not config:
-        return RedirectResponse(url="/settings", status_code=302)
-
-    metadata = file_storage.get_metadata(config.file_id)
-    if not metadata:
-        return RedirectResponse(url="/settings", status_code=302)
-
-    return templates.TemplateResponse(
-        "translate.html",
-        {
-            "request": request,
-            "file_id": config.file_id,
-            "metadata": metadata,
-        }
-    )
+    """Translation page - redirects to dashboard (translate integrated into dashboard)."""
+    return RedirectResponse(url="/?tab=untranslated", status_code=302)
 
 
 @router.get("/settings", response_class=HTMLResponse)
@@ -158,53 +120,17 @@ async def settings_page(request: Request):
     )
 
 
-# Legacy routes for backwards compatibility
-@router.get("/stats/{file_id}", response_class=HTMLResponse)
+# Legacy routes - redirect to dashboard
+@router.get("/stats/{file_id}")
 async def stats_page_legacy(request: Request, file_id: str):
-    """Legacy statistics page with file_id."""
-    templates = request.app.state.templates
-    file_storage = request.app.state.file_storage
-
-    metadata = file_storage.get_metadata(file_id)
-    if not metadata:
-        return templates.TemplateResponse(
-            "error.html",
-            {"request": request, "error": "File not found"},
-            status_code=404,
-        )
-
-    return templates.TemplateResponse(
-        "stats.html",
-        {
-            "request": request,
-            "file_id": file_id,
-            "metadata": metadata,
-        }
-    )
+    """Legacy statistics page - redirects to dashboard."""
+    return RedirectResponse(url="/", status_code=302)
 
 
-@router.get("/translate/{file_id}", response_class=HTMLResponse)
+@router.get("/translate/{file_id}")
 async def translate_page_legacy(request: Request, file_id: str):
-    """Legacy translation page with file_id."""
-    templates = request.app.state.templates
-    file_storage = request.app.state.file_storage
-
-    metadata = file_storage.get_metadata(file_id)
-    if not metadata:
-        return templates.TemplateResponse(
-            "error.html",
-            {"request": request, "error": "File not found"},
-            status_code=404,
-        )
-
-    return templates.TemplateResponse(
-        "translate.html",
-        {
-            "request": request,
-            "file_id": file_id,
-            "metadata": metadata,
-        }
-    )
+    """Legacy translation page - redirects to dashboard."""
+    return RedirectResponse(url="/?tab=untranslated", status_code=302)
 
 
 @router.get("/review/{file_id}/{language}", response_class=HTMLResponse)
