@@ -289,8 +289,11 @@ TRANSLATION ({lang_name}):
                 response_format={"type": "json_object"},
             )
 
-            result_text = response.choices[0].message.content.strip()
-            result_data = json.loads(result_text)
+            result_text = response.choices[0].message.content
+            if not result_text or not result_text.strip():
+                raise ValueError("Empty response from API")
+
+            result_data = json.loads(result_text.strip())
 
             return ReviewWithSuggestionsResult(
                 key=key,
@@ -301,6 +304,18 @@ TRANSLATION ({lang_name}):
                 suggestions=result_data.get("suggestions", []),
             )
 
+        except json.JSONDecodeError as e:
+            # Handle JSON parsing errors specifically
+            # Include partial response in error for debugging
+            partial = result_text[:200] if result_text else "(empty)"
+            return ReviewWithSuggestionsResult(
+                key=key,
+                source=source,
+                translation=translation,
+                language=target_lang,
+                issues=[f"Review failed: Invalid JSON response - {str(e)}. Response: {partial}"],
+                suggestions=[],
+            )
         except Exception as e:
             # Return a result indicating review failed
             return ReviewWithSuggestionsResult(

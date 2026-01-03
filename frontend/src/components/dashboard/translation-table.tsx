@@ -47,14 +47,14 @@ export function TranslationTable({
 
   return (
     <div className="flex-1 overflow-auto">
-      <Table>
+      <Table className="table-fixed">
         <TableHeader className="bg-zinc-800/80 sticky top-0 z-10">
           <TableRow className="border-b border-zinc-700">
-            <TableHead className="w-[20%] text-zinc-500 font-medium text-xs uppercase tracking-wider">Key</TableHead>
-            <TableHead className="w-[25%] text-zinc-500 font-medium text-xs uppercase tracking-wider">Source (EN)</TableHead>
-            <TableHead className="text-zinc-500 font-medium text-xs uppercase tracking-wider">Translation ({language.toUpperCase()})</TableHead>
-            <TableHead className="w-24 text-zinc-500 font-medium text-xs uppercase tracking-wider">State</TableHead>
-            <TableHead className="w-20 text-zinc-500 font-medium text-xs uppercase tracking-wider text-right">Actions</TableHead>
+            <TableHead className="w-[15%] min-w-[120px] max-w-[200px] text-zinc-500 font-medium text-xs uppercase tracking-wider">Key</TableHead>
+            <TableHead className="w-[20%] min-w-[150px] max-w-[250px] text-zinc-500 font-medium text-xs uppercase tracking-wider">Source (EN)</TableHead>
+            <TableHead className="w-[40%] text-zinc-500 font-medium text-xs uppercase tracking-wider">Translation ({language.toUpperCase()})</TableHead>
+            <TableHead className="w-20 text-zinc-500 font-medium text-xs uppercase tracking-wider">State</TableHead>
+            <TableHead className="w-16 text-zinc-500 font-medium text-xs uppercase tracking-wider text-right">Actions</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>

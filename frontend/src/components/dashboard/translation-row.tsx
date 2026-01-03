@@ -68,13 +68,13 @@ export function TranslationRow({
         t.state === "flagged" && "bg-amber-950/20"
       )}
     >
-      <TableCell className="py-3 align-top">
+      <TableCell className="py-3 align-top w-[15%] whitespace-normal">
         <code className="text-xs text-zinc-500 break-all font-mono">{t.key}</code>
       </TableCell>
-      <TableCell className="py-3 align-top">
-        <span className="text-sm text-zinc-400">{t.source}</span>
+      <TableCell className="py-3 align-top w-[20%] whitespace-normal">
+        <span className="text-sm text-zinc-400 break-words">{t.source}</span>
       </TableCell>
-      <TableCell className="py-3">
+      <TableCell className="py-3 w-[40%]">
         <div className="relative">
           <Input
             value={value}
@@ -98,12 +98,12 @@ export function TranslationRow({
           )}
         </div>
       </TableCell>
-      <TableCell className="py-3">
+      <TableCell className="py-3 w-20">
         <Badge className={cn("text-xs", STATE_COLORS[t.state] || "bg-zinc-600")}>
           {STATE_LABELS[t.state] || t.state}
         </Badge>
       </TableCell>
-      <TableCell className="py-3">
+      <TableCell className="py-3 w-16">
         <div className="flex items-center justify-end gap-1">
           {isUntranslated ? (
             <Button
@@ -125,7 +125,7 @@ export function TranslationRow({
               <Button
                 size="icon"
                 variant="ghost"
-                onClick={() => onReviewSingle(t.key, t.source, t.translation)}
+                onClick={() => onReviewSingle(t.key, t.source, value || t.translation)}
                 title="LLM Review"
                 className="h-8 w-8 text-zinc-500 hover:text-purple-400"
               >

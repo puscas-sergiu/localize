@@ -452,7 +452,10 @@ async def review_single_translation(
 
     from ...validation.llm_reviewer import LLMReviewer
 
-    reviewer = LLMReviewer()
+    try:
+        reviewer = LLMReviewer()
+    except ValueError as e:
+        raise HTTPException(500, f"LLM Review configuration error: {str(e)}")
 
     result = await asyncio.to_thread(
         reviewer.review_with_suggestions,
